@@ -1,0 +1,26 @@
+{
+  "name": "beehive",
+  "version": "1.0.0",
+  "description": "An application used to merge two openmrs database with similar metadata into one",
+  "main": "script.js",
+  "scripts": {
+    "test": "npm test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mhawila/beehive.git"
+  },
+  "keywords": [
+    "openmrs",
+    "database"
+  ],
+  "author": "Willa Mhawila",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mhawila/beehive/issues"
+  },
+  "homepage": "https://github.com/mhawila/beehive#readme",
+  "dependencies": {
+    "mysql2": "^1.1.2"
+  }
+}
