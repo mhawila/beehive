@@ -27,7 +27,7 @@ console.log('Creating source connection...');
     database: config.source.openmrsDb || 'openmrs',
 });
 
-let [results, fields] = await srcConn.execute('SELECT * from person limit 10');
+let [results, fields] = await srcConn.execute('SELECT count(*) as cc from person');
 
 console.log('This is the results:', JSON.stringify(results,null,2));
 // console.log('Fields:', fields);
@@ -35,5 +35,4 @@ console.log('This is the results:', JSON.stringify(results,null,2));
 catch(err) {
   console.error(err);
 }
-}())
-.then(()=>{});
+}());
