@@ -1,11 +1,17 @@
 'use strict';
 const moment = require('moment');
+const uuid = require('uuid/v1');
 const connection = require('./connection').connection;
 const utils = require('./utils');
+const logTime = utils.logTime;
 const config = require('./config');
 const _ = require('lodash');
 const userMap = new Map();
 const personMap = new Map();
+const movedItemsCount = {
+  persons: 0,
+  users: 0
+};
 const BATCH_SIZE = config.batchSize || 500;
 
 async function getUsersCount(connection, condition) {
@@ -37,9 +43,14 @@ async function getPersonsCount(connection, condition) {
     }
 }
 
+function _handleString(value) {
+  if(value === null || value === undefined) return null;
+  return `'${value}'`;
+}
+
 function preparePersonInsert(rows, nextPersonId) {
     let insert = 'INSERT INTO person(person_id, gender, birthdate,' +
-        'birthdate_estimated, dead, deathdate, cause_of_death, creator,' +
+        'birthdate_estimated, dead, death_date, cause_of_death, creator,' +
         'date_created, changed_by, date_changed, voided, voided_by,' +
         'date_voided, void_reason, uuid) VALUES ';
 
@@ -49,14 +60,16 @@ function preparePersonInsert(rows, nextPersonId) {
             toBeinserted += ',';
         }
         personMap.set(row['person_id'], nextPersonId);
-        toBeinserted += `(${nextPersonId}, ${row['gender']}, ${utils.formatDate(row['birthdate'])},` +
-            `${row['birthdate_estimated']}, ${row['dead']},` +
-            `${utils.formatDate(row['deathdate'])}, ${row['cause_of_death']},` +
-            `${userMap.get(row['creator'])}, ${utils.formatDate(row['date_created'])},` +
-            `${row['changed_by']}, ${utils.formatDate(row['date_changed'])},` +
-            `${row['voided']}, ${row['voided_by']},` +
-            `${utils.formatDate(row['date_voided'])},` +
-            `${row['void_reason']}, ${row['uuid']})`;
+        toBeinserted += `(${nextPersonId}, '${row['gender']}', `
+            + `${_handleString(utils.formatDate(row['birthdate']))},`
+            + `${_handleString(row['birthdate_estimated'])}, ${row['dead']},`
+            + `${_handleString(utils.formatDate(row['deathdate']))}, `
+            + `${_handleString(row['cause_of_death'])}, ${userMap.get(row['creator'])}, `
+            + `${_handleString(utils.formatDate(row['date_created']))},`
+            + `${row['changed_by']}, ${_handleString(utils.formatDate(row['date_changed']))},`
+            + `${row['voided']}, ${row['voided_by']},`
+            + `${_handleString(utils.formatDate(row['date_voided']))},`
+            + `${_handleString(row['void_reason'])}, '${uuid()}')`;
         nextPersonId++;
     })
 
@@ -77,22 +90,23 @@ function prepareUserInsert(rows, nextUserId) {
           toBeinserted += ',';
       }
       userMap.set(row['user_id'], nextUserId);
-      toBeinserted += `(${nextUserId}, ${row['system_id']}, ${row['username']},`
-          + `${row['password']}, ${row['salt']}, ${row[secret_question]}, `
-          + `${row['secret_answer']}, ${userMap.get(row['creator'])}`,
-          + `${utils.formatDate(row['date_created'])}, `
-          + `${userMap.get(row['changed_by'])}, `
-          + `${utils.formatDate(row['date_changed'])},`
+      toBeinserted += `(${nextUserId}, '${row['system_id']}', ${_handleString(row['username'])},`
+          + `'${row['password']}', '${row['salt']}', ${_handleString(row['secret_question'])}, `
+          + `${_handleString(row['secret_answer'])}, ${userMap.get(row['creator'])}, `
+          + `${_handleString(utils.formatDate(row['date_created']))}, `
+          + `${row['changed_by']}, `
+          + `${_handleString(utils.formatDate(row['date_changed']))}, `
           + `${personMap.get(row['person_id'])}, ${row['retired']}, `
-          + `${userMap.get(row['retired_by'])}, `
-          + `${utils.formatDate(row['date_retired'])},` +
-          + `${row['retire_reason']}, ${row['uuid']})`;
-      nextPersonId++;
-  })
+          + `${row['retired_by']}, `
+          + `${_handleString(utils.formatDate(row['date_retired']))}, `
+          + `${_handleString(row['retire_reason'])}, '${uuid()}')`;
+
+      nextUserId++;
+  });
 
   let query = insert + toBeinserted;
 
-  return [query, nextPersonId];
+  return [query, nextUserId];
 }
 
 function movePersonNamesforMovedPersons() {
@@ -139,31 +153,37 @@ async function movePersons(srcConn, destConn, srcUserId) {
         let nextPersonId = await utils.getNextAutoIncrementId(destConn, 'person');
         let personsToMoveCount = await getPersonsCount(srcConn, 'creator=' + srcUserId);
 
-        // Get all person created by user0 in SRC database
+        // Get all person created by srcUserId in SRC database
         let startingRecord = 0;
         let personFetchQuery = `SELECT * FROM person WHERE creator = ${srcUserId}`
-                              + `order by date_created limit `;
+                              + ` order by date_created limit `;
         let temp = personsToMoveCount;
+        let moved = 0;
         while (temp % BATCH_SIZE > 0) {
             let query = personFetchQuery;
-            if (temp / BATCH_SIZE > 0) {
+            if (Math.floor(temp / BATCH_SIZE) > 0) {
+                moved += BATCH_SIZE;
                 query += startingRecord + ', ' + BATCH_SIZE;
                 temp -= BATCH_SIZE;
             } else {
+                moved += temp;
                 query += startingRecord + ', ' + temp;
                 temp = 0;
             }
             startingRecord += BATCH_SIZE;
+            // console.log('fetch query', query);
             let [r, f] = await srcConn.query(query);
             let [q, nextId] = preparePersonInsert(r, nextPersonId);
-            // console.log(r);
-            console.log('query ni:', q);
-            console.log('id inayofuata ni:', nextId);
-            // TODO: Insert person records into destination machine.
+
+            // Insert person records into destination machine.
+            // console.log('Running query:', q);
+            await destConn.query(q);
             nextPersonId = nextId;
         }
+        return moved;
     } catch (ex) {
         console.error('An error occured while moving persons', ex);
+        throw ex;
     }
 }
 
@@ -177,27 +197,30 @@ async function moveUsers(srcConn, destConn, creatorId) {
                     + ` order by date_changed, date_created LIMIT `;
 
     let temp = usersToMoveCount;
+    let moved = 0
     while (temp % BATCH_SIZE > 0) {
         let query = userFetchQuery;
-        if (temp / BATCH_SIZE > 0) {
+        if (Math.floor(temp / BATCH_SIZE) > 0) {
+            moved += BATCH_SIZE;
             query += startingRecord + ', ' + BATCH_SIZE;
             temp -= BATCH_SIZE;
         } else {
+            moved += temp;
             query += startingRecord + ', ' + temp;
             temp = 0;
         }
         startingRecord += BATCH_SIZE;
         let [records, fields] = await srcConn.query(query);
-        let [insertStmt, nextId] = prepareUserInsert(r, nextUserId);
-        // console.log(r);
-        console.log('query ni:', q);
-        console.log('id inayofuata ni:', nextId);
+        let [insertStmt, nextId] = prepareUserInsert(records, nextUserId);
 
-        // TODO: Insert data into destination (using transactions)
+        // Insert data into destination
+        await destConn.query(insertStmt);
         nextUserId = nextId;
     }
+    return moved;
   } catch (ex) {
       console.error('An error occured while moving users', ex);
+      throw ex;
   }
 }
 
@@ -206,17 +229,25 @@ async function traverseUserTree(tree, srcConn,destConn) {
     throw new Error('Error! Incompatible tree passed', tree);
   }
   try {
-    await movePersons(srcConn, destConn, tree.userId);
-    await moveUsers(srcConn, destConn, tree.userId);
-    //For each child do the same.
+    let movedPersons = await movePersons(srcConn, destConn, tree.userId);
+    let movedUsers = await moveUsers(srcConn, destConn, tree.userId);
+    // For each child do the same.
     if(tree.children && tree.children.length>0) {
-      _.each(tree.children, child => {
-        traverseUserTree(child, srcConn, destConn);
-      })
+      for(let i=0; i < tree.children.length; i++) {
+        let childMoved = await traverseUserTree(tree.children[i], srcConn, destConn);
+        movedPersons += childMoved.movedPersonsCount;
+        movedUsers += childMoved.movedUsersCount;
+      }
     }
+
+    return {
+      movedPersonsCount: movedPersons,
+      movedUsersCount: movedUsers
+    };
   }
   catch(ex) {
     console.error('An error occured while traversing tree ', tree, ex);
+    throw ex;
   }
 }
 
@@ -230,12 +261,16 @@ async function mergeAlgorithm() {
         console.log('Fetching users count from source & destination...');
         const srcUsersCount = await getUsersCount(srcConn);
         const initialDestUsersCount = await getUsersCount(destConn);
-        console.log('Number of users in source db: ', srcUsersCount);
-        console.log('Initial numnber of users in destination: ',
-            initialDestUsersCount);
 
         const srcPersonCount = await getPersonsCount(srcConn);
         const initialDestPersonCount = await getPersonsCount(destConn);
+
+        console.log(`${logTime()}: Number of persons in source db: ${srcPersonCount}`);
+        console.log(`${logTime()}: Number of users in source db: ${srcUsersCount}`);
+        console.log(`${logTime()}: Initial numnber of persons in destination: `
+                    + `${initialDestPersonCount}`);
+        console.log(`${logTime()}: Initial numnber of users in destination: `
+                    + `${initialDestUsersCount}`);
 
         // Get source's admin user. (This is usually user with user_id=1, user0)
         let srcAdminUserQuery = `SELECT * FROM users where user_id=1 or
@@ -259,11 +294,32 @@ async function mergeAlgorithm() {
         // Create the user tree.
         let tree = await createUserTree(srcConn, srcAdminUserId);
         console.log('tree:', tree);
-        // Traverse user tree performing the following for each user
-        //await traverseUserTree(tree, srcConn, destConn);
 
+        // Traverse user tree performing the following for each user
+        let count = await traverseUserTree(tree, srcConn, destConn);
+
+        const finalDestUserCount = await getUsersCount(destConn);
+        const finalDestPersonCount = await getPersonsCount(destConn);
+
+        console.log('Moved counts', count);
+        //Do some crude math verifications.
+        let expectedFinalDestUserCount = initialDestUsersCount + count.movedUsersCount;
+        let expectedFinalDestPersonCount = initialDestPersonCount + count.movedPersonsCount;
+
+        if(expectedFinalDestPersonCount === finalDestPersonCount &&
+                      expectedFinalDestUserCount === finalDestUserCount) {
+            console.log('Hooraa! Persons & Users Moved successfully!');
+            console.log(`${utils.formatDate(Date.now())}: ${count.movedPersonsCount} persons moved.` );
+            console.log(`${utils.formatDate(Date.now())}: ${count.movedUsersCount} users moved.` );
+            console.log('Moving to next step...');
+        }
+        else {
+          console.error('Expected & actual numbers do not match!!');
+          console.error('Too bad we are in deep sh*t!, We have a problem, terminating ...');
+          process.exit(1);
+        }
     } catch (ex) {
-        console.error('Something terrible happened here!', ex);
+        console.error(ex);
     } finally {
         if (srcConn) srcConn.end();
         if (destConn) destConn.end();

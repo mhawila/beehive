@@ -13,8 +13,9 @@ let getNextAutoIncrementId = async function(connection, table) {
     return r[0]['next_auto'];
   }
   catch(trouble) {
-    console.error('An error occured while fetching next auto increment for' +
-    table, trouble);
+    console.error('An error occured while fetching next auto increment for table ' +
+    table,':\n', trouble);
+    throw trouble;
   }
 };
 
@@ -27,7 +28,12 @@ let formatDate = function(d, format) {
   return null;
 };
 
+let logTime = function() {
+  return formatDate(Date.now());
+}
+
 module.exports = {
   getNextAutoIncrementId: getNextAutoIncrementId,
-  formatDate: formatDate
+  formatDate: formatDate,
+  logTime: logTime,
 };
