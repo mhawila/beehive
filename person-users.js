@@ -8,44 +8,20 @@ const config = require('./config');
 const _ = require('lodash');
 const userMap = new Map();
 const personMap = new Map();
-const movedItemsCount = {
+const movedItemsCount = {   // Not used anywhere yet.
   persons: 0,
   users: 0
 };
 const BATCH_SIZE = config.batchSize || 500;
 
-async function getUsersCount(connection, condition) {
-    let countQuery = 'SELECT count(*) as users_count FROM users';
-
-    if(condition) {
-      countQuery += ' WHERE ' + condition;
-    }
-
-    try {
-        let [results, metadata] = await connection.query(countQuery);
-        return results[0]['users_count'];
-    } catch (ex) {
-        console.error('Error while fetching users count', ex);
-    }
-}
-
-async function getPersonsCount(connection, condition) {
-    let personCountQuery = 'SELECT COUNT(*) as person_count from person';
-
-    if (condition) {
-        personCountQuery += ' WHERE ' + condition;
-    }
-    try {
-        let [results, metadata] = await connection.query(personCountQuery);
-        return results[0]['person_count'];
-    } catch (ex) {
-        console.error('Error while fetching number of records in person table');
-    }
-}
-
 function _handleString(value) {
   if(value === null || value === undefined) return null;
   return `'${value}'`;
+}
+
+function _uuid(existing) {
+  if(config.generateNewUuids) return uuid();
+  return existing;
 }
 
 function preparePersonInsert(rows, nextPersonId) {
@@ -69,7 +45,7 @@ function preparePersonInsert(rows, nextPersonId) {
             + `${row['changed_by']}, ${_handleString(utils.formatDate(row['date_changed']))},`
             + `${row['voided']}, ${row['voided_by']},`
             + `${_handleString(utils.formatDate(row['date_voided']))},`
-            + `${_handleString(row['void_reason'])}, '${uuid()}')`;
+            + `${_handleString(row['void_reason'])}, '${_uuid(row['uuid'])}')`;
         nextPersonId++;
     })
 
@@ -99,7 +75,7 @@ function prepareUserInsert(rows, nextUserId) {
           + `${personMap.get(row['person_id'])}, ${row['retired']}, `
           + `${row['retired_by']}, `
           + `${_handleString(utils.formatDate(row['date_retired']))}, `
-          + `${_handleString(row['retire_reason'])}, '${uuid()}')`;
+          + `${_handleString(row['retire_reason'])}, '${_uuid(row['uuid'])}')`;
 
       nextUserId++;
   });
@@ -111,6 +87,35 @@ function prepareUserInsert(rows, nextUserId) {
 
 function movePersonNamesforMovedPersons() {
     //TODO
+}
+
+async function getUsersCount(connection, condition) {
+    let countQuery = 'SELECT count(*) as users_count FROM users';
+
+    if(condition) {
+      countQuery += ' WHERE ' + condition;
+    }
+
+    try {
+        let [results, metadata] = await connection.query(countQuery);
+        return results[0]['users_count'];
+    } catch (ex) {
+        console.error('Error while fetching users count', ex);
+    }
+}
+
+async function getPersonsCount(connection, condition) {
+    let personCountQuery = 'SELECT COUNT(*) as person_count from person';
+
+    if (condition) {
+        personCountQuery += ' WHERE ' + condition;
+    }
+    try {
+        let [results, metadata] = await connection.query(personCountQuery);
+        return results[0]['person_count'];
+    } catch (ex) {
+        console.error('Error while fetching number of records in person table');
+    }
 }
 
 async function createUserTree(connection, rootUserId, tree) {
@@ -189,12 +194,13 @@ async function movePersons(srcConn, destConn, srcUserId) {
 
 async function moveUsers(srcConn, destConn, creatorId) {
   try {
+    let condition = `creator=${creatorId} and system_id not in ('daemon','admin')`;
     let nextUserId = await utils.getNextAutoIncrementId(destConn, 'users');
-    let usersToMoveCount = await getUsersCount(srcConn, 'creator=' + creatorId);
+    let usersToMoveCount = await getUsersCount(srcConn, condition);
 
     let startingRecord = 0;
-    let userFetchQuery = `SELECT * FROM users WHERE creator=${creatorId}`
-                    + ` order by date_changed, date_created LIMIT `;
+    let userFetchQuery = 'SELECT * FROM users WHERE ' + condition
+                        + ' order by date_changed, date_created LIMIT ';
 
     let temp = usersToMoveCount;
     let moved = 0
@@ -252,6 +258,11 @@ async function traverseUserTree(tree, srcConn,destConn) {
 }
 
 async function mergeAlgorithm() {
+    if(config.generateNewUuids === null || config.generateNewUuids === undefined) {
+      throw new Error('Please specify how you want UUIDs to be handled by '
+        + 'specify "generateNewUuids" config option as true/false in '
+        + 'config.json file');
+    }
     let srcConn = null;
     let destConn = null;
     try {
