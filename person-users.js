@@ -1,5 +1,6 @@
 'use strict';
 const moment = require('moment');
+const mysql = require('mysql2');
 const uuid = require('uuid/v1');
 const connection = require('./connection').connection;
 const utils = require('./utils');
@@ -15,8 +16,7 @@ const movedItemsCount = {   // Not used anywhere yet.
 const BATCH_SIZE = config.batchSize || 500;
 
 function _handleString(value) {
-  if(value === null || value === undefined) return null;
-  return `'${value}'`;
+  return mysql.escape(value);
 }
 
 function _uuid(existing) {
@@ -54,6 +54,42 @@ function preparePersonInsert(rows, nextPersonId) {
     return [query, nextPersonId];
 }
 
+function preparePersonNameInsert(rows, nextPersonNameId) {
+  let insert = 'INSERT INTO person_name(person_name_id, preferred, person_id, '
+             + 'prefix, given_name, middle_name, family_name_prefix, family_name,'
+             + 'family_name2, family_name_suffix, degree, creator, date_created,'
+             + 'voided, voided_by, date_voided, void_reason, changed_by, '
+             + 'date_changed, uuid) VALUES ';
+
+  let toBeinserted = '';
+  rows.forEach(row => {
+    if(toBeinserted.length > 1) {
+      toBeinserted += ',';
+    }
+    let currentPersonId = personMap.get(row['person_id']);
+    if(currentPersonId !== undefined) {
+      let voidedBy = row['voided_by'] === null ? null : userMap.get(row['voided_by']);
+      let changedBy = row['changed_by'] === null ? null : userMap.get(row['changed_by']);
+
+      toBeinserted += `(${nextPersonNameId}, ${row['preferred']}, ${currentPersonId}, `
+          + `${_handleString(row['prefix'])}, ${_handleString(row['given_name'])}, `
+          + `${_handleString(row['middle_name'])}, ${_handleString(row['family_name_prefix'])}, `
+          + `${_handleString(row['family_name'])}, ${_handleString(row['family_name2'])}, `
+          + `${_handleString(row['family_name_suffix'])}, ${_handleString(row['degree'])}, `
+          + `${userMap.get(row['creator'])}, ${_handleString(utils.formatDate(row['date_created']))}, `
+          + `${row['voided']}, ${voidedBy}, `
+          + `${_handleString(utils.formatDate(row['date_voided']))}, ${_handleString(row['void_reason'])}, `
+          + `${changedBy}, ${_handleString(utils.formatDate(row['date_changed']))}, `
+          + `'${_uuid(row['uuid'])}')`;
+      nextPersonNameId++;
+    }
+  });
+  let query = null;
+  if(toBeinserted !== '') query = insert + toBeinserted;
+
+  return [query, nextPersonNameId];
+}
+
 function prepareUserInsert(rows, nextUserId) {
   let insert = 'INSERT INTO users(user_id, system_id, username, password, salt,'
               + 'secret_question, secret_answer, creator, date_created, '
@@ -85,8 +121,16 @@ function prepareUserInsert(rows, nextUserId) {
   return [query, nextUserId];
 }
 
-function movePersonNamesforMovedPersons() {
-    //TODO
+// Created about realizing how getUsersCount & getPersonsCount can be
+// generalized.
+async function getCount(connection, table, alias, condition) {
+  let countQuery = `SELECT count(*) as ${alias} FROM ${table}`;
+  if(condition) {
+    countQuery += ' WHERE ' + condition;
+  }
+
+  let [results, metadata] = await connection.query(countQuery);
+  return results[0][alias];
 }
 
 async function getUsersCount(connection, condition) {
@@ -101,6 +145,7 @@ async function getUsersCount(connection, condition) {
         return results[0]['users_count'];
     } catch (ex) {
         console.error('Error while fetching users count', ex);
+        throw ex;
     }
 }
 
@@ -115,6 +160,7 @@ async function getPersonsCount(connection, condition) {
         return results[0]['person_count'];
     } catch (ex) {
         console.error('Error while fetching number of records in person table');
+        throw ex;
     }
 }
 
@@ -150,6 +196,30 @@ async function createUserTree(connection, rootUserId, tree) {
     } catch (ex) {
         console.error('Error occured while building user tree', ex);
     }
+}
+
+async function movePersonNamesforMovedPersons(srcConn, destConn) {
+    let fetchQuery = 'SELECT * FROM person_name order by person_name_id LIMIT ';
+    let startingRecord = 0;
+    let dynamicQuery = fetchQuery + `${startingRecord}, ${BATCH_SIZE}`;
+    let [r, f] = await srcConn.query(dynamicQuery);
+    let nextPersonNameId = -1;
+    if(r.length>0) {
+      nextPersonNameId = await utils.getNextAutoIncrementId(destConn, 'person_name');
+    }
+
+    let moved = 0;
+    while(Array.isArray(r) && r.length>0) {
+      let [insertStmt, nextId] = preparePersonNameInsert(r, nextPersonNameId);
+      let [result, meta] = await destConn.query(insertStmt);
+      moved += result.affectedRows;
+      nextPersonNameId = nextId;
+
+      startingRecord += BATCH_SIZE;
+      dynamicQuery = fetchQuery + `${startingRecord}, ${BATCH_SIZE}`;
+      [r, f] = await srcConn.query(dynamicQuery);
+    }
+    return moved;
 }
 
 async function movePersons(srcConn, destConn, srcUserId) {
@@ -276,12 +346,11 @@ async function mergeAlgorithm() {
         const srcPersonCount = await getPersonsCount(srcConn);
         const initialDestPersonCount = await getPersonsCount(destConn);
 
-        console.log(`${logTime()}: Number of persons in source db: ${srcPersonCount}`);
-        console.log(`${logTime()}: Number of users in source db: ${srcUsersCount}`);
-        console.log(`${logTime()}: Initial numnber of persons in destination: `
-                    + `${initialDestPersonCount}`);
-        console.log(`${logTime()}: Initial numnber of users in destination: `
-                    + `${initialDestUsersCount}`);
+        console.log(`${logTime()}: Starting to move persons & users...`);
+        console.log(`Number of persons in source db: ${srcPersonCount}`);
+        console.log(`Number of users in source db: ${srcUsersCount}`);
+        console.log(`Initial numnber of persons in destination: ${initialDestPersonCount}`);
+        console.log(`Initial numnber of users in destination: ${initialDestUsersCount}`);
 
         // Get source's admin user. (This is usually user with user_id=1, user0)
         let srcAdminUserQuery = `SELECT * FROM users where user_id=1 or
@@ -306,23 +375,43 @@ async function mergeAlgorithm() {
         let tree = await createUserTree(srcConn, srcAdminUserId);
         console.log('tree:', tree);
 
-        // Traverse user tree performing the following for each user
-        let count = await traverseUserTree(tree, srcConn, destConn);
+        // STEP1.1 Traverse user tree performing the following for each user
+        let count = null;
+        try {
+          await destConn.query('START TRANSACTION');
+          count = await traverseUserTree(tree, srcConn, destConn);
+          await destConn.query('COMMIT');
+        }
+        catch(dbEx) {
+          await destConn.query('ROLLBACK');
+          throw dbEx;
+        }
 
         const finalDestUserCount = await getUsersCount(destConn);
         const finalDestPersonCount = await getPersonsCount(destConn);
 
-        console.log('Moved counts', count);
         //Do some crude math verifications.
         let expectedFinalDestUserCount = initialDestUsersCount + count.movedUsersCount;
         let expectedFinalDestPersonCount = initialDestPersonCount + count.movedPersonsCount;
 
         if(expectedFinalDestPersonCount === finalDestPersonCount &&
                       expectedFinalDestUserCount === finalDestUserCount) {
-            console.log('Hooraa! Persons & Users Moved successfully!');
-            console.log(`${utils.formatDate(Date.now())}: ${count.movedPersonsCount} persons moved.` );
-            console.log(`${utils.formatDate(Date.now())}: ${count.movedUsersCount} users moved.` );
-            console.log('Moving to next step...');
+            console.log(`${logTime()}: Hooraa! Persons & Users Moved successfully!`);
+            console.log(`${count.movedPersonsCount} persons moved and new destination total is ${finalDestPersonCount}`);
+            console.log(`${count.movedUsersCount} users moved and new destination total is ${finalDestUserCount}`);
+            console.log('Moving person names...');
+            // TODO: Establish number of names in dest in order to compare at the end.
+            try {
+              await destConn.query('START TRANSACTION');
+              count = await movePersonNamesforMovedPersons(srcConn, destConn);
+              await destConn.query('COMMIT');
+
+              console.log(`${count} names moved`)
+            }
+            catch(dbEx) {
+              await destConn.query('ROLLBACK');
+              throw dbEx;
+            }
         }
         else {
           console.error('Expected & actual numbers do not match!!');
