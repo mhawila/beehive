@@ -9,6 +9,7 @@ const config = require('./config');
 const _ = require('lodash');
 const userMap = new Map();
 const personMap = new Map();
+const relationshipTypeMap = new Map();
 const movedItemsCount = {   // Not used anywhere yet.
   persons: 0,
   users: 0
@@ -88,6 +89,63 @@ function preparePersonNameInsert(rows, nextPersonNameId) {
   if(toBeinserted !== '') query = insert + toBeinserted;
 
   return [query, nextPersonNameId];
+}
+
+function prepareRelationshipTypeInsert(rows, nextId) {
+  let insert = 'INSERT INTO relationship_type (relationship_type_id, a_is_to_b, '
+        + 'b_is_to_a, preferred, weight, description, creator, date_created, '
+        + 'uuid, retired, retired_by, date_retired, retire_reason) VALUES ';
+
+  let toBeinserted = '';
+  rows.forEach(row => {
+    if(toBeinserted.length > 1) {
+      toBeinserted += ',';
+    }
+    let retiredBy = row['retired_by'] === null ? null : userMap.get(row['retired_by']);
+    toBeinserted += `(${nextId}, ${_handleString(row['a_is_to_b'])}, `
+        + `${_handleString(row['b_is_to_a'])}, ${row['preferred']}, ${row['weight']}, `
+        + `${_handleString(row['description'])}, ${userMap.get(row['creator'])}, `
+        + `${_handleString(utils.formatDate(row['date_created']))}, `
+        + `${_uuid(row['uuid'])}, ${row['retired']}, ${retiredBy}, `
+        + `${_handleString(utils.formatDate(row['date_retired']))}, `
+        + `${_handleString(row['retire_reason'])})`;
+
+        nextId++;
+  });
+
+  let insertStatement = insert + toBeinserted;
+  return [insertStatement, nextId];
+}
+
+function prepareRelationshipInsert(rows, nextId) {
+  let insert = 'INSERT INTO relationship (relationship_id, person_a, relationship, '
+        + 'person_b, creator, date_created, voided, voided_by, date_voided, '
+        + 'void_reason, uuid, date_changed, changed_by, start_date, end_date)'
+        + ' VALUES ';
+
+  let toBeinserted = '';
+  rows.forEach(row => {
+    if(toBeinserted.length > 1) {
+      toBeinserted += ',';
+    }
+    let voidedBy = row['voided_by'] === null ? null : userMap.get(row['voided_by']);
+    let changedBy = row['changed_by'] === null ? null : userMap.get(row['changed_by']);
+
+    toBeinserted += `(${nextId}, ${personMap.get(row['person_a'])}, `
+        + `${relationshipTypeMap.get(row['relationship'])}, `
+        + `${personMap.get(row['person_b'])}, ${userMap.get(row['creator'])}, `
+        + `${_handleString(utils.formatDate(row['date_created']))}, `
+        + `${row['voided']}, ${voidedBy}, ${_handleString(utils.formatDate(row['date_voided']))}, `
+        + `${_handleString(row['void_reason'])}, ${_uuid(row['uuid'])}, `
+        + `${_handleString(utils.formatDate(row['date_changed']))}, `
+        + `${changedBy}, ${_handleString(utils.formatDate(row['start_date']))}, `
+        + `${_handleString(utils.formatDate(row['end_date']))})`;
+
+    nextId++;
+  });
+
+  let insertStatement = insert + toBeinserted;
+  return [insertStatement, nextId];
 }
 
 function prepareUserInsert(rows, nextUserId) {
@@ -191,14 +249,14 @@ function prepareUserRoleInsert(rows) {
 
 // Created after realizing how getUsersCount & getPersonsCount can be
 // generalized.
-async function getCount(connection, table, alias, condition) {
-  let countQuery = `SELECT count(*) as ${alias} FROM ${table}`;
+async function getCount(connection, table, condition) {
+  let countQuery = `SELECT count(*) as table_count FROM ${table}`;
   if(condition) {
     countQuery += ' WHERE ' + condition;
   }
 
-  let [results, metadata] = await connection.query(countQuery);
-  return results[0][alias];
+  let [results] = await connection.query(countQuery);
+  return results[0]['table_count'];
 }
 
 async function consolidateRolesAndPrivileges(srcConn, destConn) {
@@ -258,6 +316,67 @@ async function consolidateRolesAndPrivileges(srcConn, destConn) {
   }
 }
 
+async function consolidateRelationshipTypes(srcConn, destConn) {
+  let query = 'SELECT * FROM relationship_type';
+  let [sRelshipTypes] = await srcConn.query(query);
+  let [dRelshipTypes] = await destConn.query(query);
+
+  let toAdd = [];
+  sRelshipTypes.forEach(sRelshipType => {
+    let match = dRelshipTypes.find(dRelshipType => {
+      return (sRelshipType['a_is_to_b'] === dRelshipType['a_is_to_b']
+                  && sRelshipType['b_is_to_a'] === dRelshipType['b_is_to_a']);
+    });
+    if(match !== undefined) {
+      relationshipTypeMap.set(sRelshipType['relationship_type_id'],
+        match['relationship_type_id']);
+    }
+    else {
+      toAdd.push(sRelshipType);
+    }
+  });
+  if(toAdd.length > 0) {
+    let nextRelationshipTypeId =
+      await utils.getNextAutoIncrementId(destConn, 'relationship_type');
+
+    let [stmt] = prepareRelationshipTypeInsert(toAdd, nextRelationshipTypeId);
+    console.log(stmt);
+    let [result] = await destConn.query(stmt);
+  }
+}
+
+async function moveRelationships(srcConn, destConn) {
+  // Get the count to be pushed
+  let countToMove = await getCount(srcConn, 'relationship');
+  let nextRelationshipId = await utils.getNextAutoIncrementId(destConn, 'relationship');
+
+  let fetchQuery = 'SELECT * FROM relationship ORDER by relationship_id LIMIT ';
+  let start = 0;
+  let temp = countToMove;
+  let moved = 0;
+  while (temp % BATCH_SIZE > 0) {
+      let query = fetchQuery;
+      if (Math.floor(temp / BATCH_SIZE) > 0) {
+          moved += BATCH_SIZE;
+          query += start + ', ' + BATCH_SIZE;
+          temp -= BATCH_SIZE;
+      } else {
+          moved += temp;
+          query += start + ', ' + temp;
+          temp = 0;
+      }
+      start += BATCH_SIZE;
+      // console.log('fetch query', query);
+      let [r] = await srcConn.query(query);
+      let [q, nextId] = prepareRelationshipInsert(r, nextRelationshipId);
+
+      // console.log('Running query:', q);
+      await destConn.query(q);
+      nextRelationshipId = nextId;
+  }
+  return moved;
+}
+
 async function updateMovedUsersRoles(srcConn, destConn) {
     let query = 'SELECT * FROM user_role WHERE user_id NOT IN (1,2)';
     let [rows] = await srcConn.query(query);
@@ -275,7 +394,7 @@ async function getUsersCount(connection, condition) {
     }
 
     try {
-        let [results, metadata] = await connection.query(countQuery);
+        let [results] = await connection.query(countQuery);
         return results[0]['users_count'];
     } catch (ex) {
         console.error('Error while fetching users count', ex);
@@ -547,6 +666,13 @@ async function mergeAlgorithm() {
               await updateMovedUsersRoles(srcConn, destConn);
               await destConn.query('COMMIT');
               console.log('Consolidation successfully...');
+
+              console.log('Upate moved person relationships');
+              await destConn.query('START TRANSACTION');
+              await consolidateRelationshipTypes(srcConn, destConn);
+              await moveRelationships(srcConn, destConn);
+              await destConn.query('COMMIT');
+              console.log('Relationships moved successfully...');
             }
             catch(dbEx) {
               await destConn.query('ROLLBACK');
