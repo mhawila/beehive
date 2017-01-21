@@ -20,8 +20,8 @@ function _handleString(value) {
 }
 
 function _uuid(existing) {
-  if(config.generateNewUuids) return uuid();
-  return existing;
+  if(config.generateNewUuids) return `'${uuid()}'`;
+  return `'${existing}'`;
 }
 
 function preparePersonInsert(rows, nextPersonId) {
@@ -45,7 +45,7 @@ function preparePersonInsert(rows, nextPersonId) {
             + `${row['changed_by']}, ${_handleString(utils.formatDate(row['date_changed']))},`
             + `${row['voided']}, ${row['voided_by']},`
             + `${_handleString(utils.formatDate(row['date_voided']))},`
-            + `${_handleString(row['void_reason'])}, '${_uuid(row['uuid'])}')`;
+            + `${_handleString(row['void_reason'])}, ${_uuid(row['uuid'])})`;
         nextPersonId++;
     })
 
@@ -80,7 +80,7 @@ function preparePersonNameInsert(rows, nextPersonNameId) {
           + `${row['voided']}, ${voidedBy}, `
           + `${_handleString(utils.formatDate(row['date_voided']))}, ${_handleString(row['void_reason'])}, `
           + `${changedBy}, ${_handleString(utils.formatDate(row['date_changed']))}, `
-          + `'${_uuid(row['uuid'])}')`;
+          + `${_uuid(row['uuid'])})`;
       nextPersonNameId++;
     }
   });
@@ -111,7 +111,7 @@ function prepareUserInsert(rows, nextUserId) {
           + `${personMap.get(row['person_id'])}, ${row['retired']}, `
           + `${row['retired_by']}, `
           + `${_handleString(utils.formatDate(row['date_retired']))}, `
-          + `${_handleString(row['retire_reason'])}, '${_uuid(row['uuid'])}')`;
+          + `${_handleString(row['retire_reason'])}, ${_uuid(row['uuid'])})`;
 
       nextUserId++;
   });
@@ -121,7 +121,75 @@ function prepareUserInsert(rows, nextUserId) {
   return [query, nextUserId];
 }
 
-// Created about realizing how getUsersCount & getPersonsCount can be
+function prepareRoleInsert(rows) {
+  let insert = 'INSERT INTO role(role, description, uuid) VALUES ';
+  let toBeinserted = '';
+  rows.forEach(row => {
+    if(toBeinserted.length > 1) {
+      toBeinserted += ',';
+    }
+    toBeinserted += `(${_handleString(row['role'])},`
+    + `${_handleString(row['description'])}, `
+    + `${_uuid(row['uuid'])})`;
+  });
+  return insert + toBeinserted;
+}
+
+function preparePrivilegeInsert(rows) {
+  let insert = 'INSERT INTO privilege(privilege, description, uuid) VALUES ';
+  let toBeinserted = '';
+  rows.forEach(row => {
+    if(toBeinserted.length > 1) {
+      toBeinserted += ',';
+    }
+    toBeinserted += `(${_handleString(row['privilege'])},`
+    + `${_handleString(row['description'])}, `
+    + `${_uuid(row['uuid'])})`;
+  });
+  return insert + toBeinserted;
+}
+
+function prepareRolePrivilegeInsert(rows) {
+  let insert = 'INSERT IGNORE INTO role_privilege(role, privilege) VALUES ';
+  let toBeinserted = '';
+  rows.forEach(row => {
+    if(toBeinserted.length > 1) {
+      toBeinserted += ',';
+    }
+    toBeinserted += `(${_handleString(row['role'])}, ${_handleString(row['privilege'])})`;
+  });
+  return insert + toBeinserted;
+}
+
+function prepareRoleRoleInsert(rows) {
+  let insert = 'INSERT IGNORE INTO role_role(parent_role, child_role) VALUES ';
+  let toBeinserted = '';
+  rows.forEach(row => {
+    if(toBeinserted.length > 1) {
+      toBeinserted += ',';
+    }
+    toBeinserted += `(${_handleString(row['parent_role'])},`
+                    + `${_handleString(row['child_role'])})`;
+  });
+  return insert + toBeinserted;
+}
+
+function prepareUserRoleInsert(rows) {
+  let insert = 'INSERT IGNORE INTO user_role(user_id, role) VALUES ';
+  let toBeinserted = '';
+  rows.forEach(row => {
+    if(toBeinserted.length > 1) {
+      toBeinserted += ',';
+    }
+    let userId = userMap.get(row['user_id']);
+    if(userId) {
+      toBeinserted += `(${userId}, ${_handleString(row['role'])})`;
+    }
+  });
+  return insert + toBeinserted;
+}
+
+// Created after realizing how getUsersCount & getPersonsCount can be
 // generalized.
 async function getCount(connection, table, alias, condition) {
   let countQuery = `SELECT count(*) as ${alias} FROM ${table}`;
@@ -131,6 +199,72 @@ async function getCount(connection, table, alias, condition) {
 
   let [results, metadata] = await connection.query(countQuery);
   return results[0][alias];
+}
+
+async function consolidateRolesAndPrivileges(srcConn, destConn) {
+  let __addRolesNotAlreadyInDestination = async function () {
+      let roleQuery = 'SELECT * FROM role';
+      let [sRoles] = await srcConn.query(roleQuery);
+      let [dRoles] = await destConn.query(roleQuery);
+
+      let rolesToAdd = sRoles.filter(sRole => {
+        return dRoles.every(dRole => {
+          return sRole.role !== dRole.role;
+        });
+      });
+      if(rolesToAdd.length > 0) {
+        // console.log('Adding Roles: ', rolesToAdd);
+        let insertStmt = prepareRoleInsert(rolesToAdd);
+        let [result] = await destConn.query(insertStmt);
+        return result.affectedRows;
+      }
+      return 0;
+  };
+
+  let __addPrivilegesNotAlreadyInDestination = async function () {
+    let query = 'SELECT * FROM privilege';
+    let [sPrivs] = await srcConn.query(query);
+    let [dPrivs] = await destConn.query(query);
+
+    let privToAdd = sPrivs.filter(sPriv => {
+      return dPrivs.every(dPriv => {
+        return sPriv.privilege !== dPriv.privilege;
+      });
+    });
+    if(privToAdd.length > 0) {
+      // console.log('Adding Privileges: ', privToAdd);
+      let insertStmt = preparePrivilegeInsert(privToAdd);
+      let [result] = await destConn.query(insertStmt);
+      return result.affectedRows;
+    }
+    return 0;
+  };
+
+  await __addPrivilegesNotAlreadyInDestination();
+  await __addRolesNotAlreadyInDestination();
+
+  //Insert role_privileges (insert ignore)
+  let [rps] = await srcConn.query('SELECT * FROM role_privilege');
+  if(rps.length > 0) {
+    let stmt = prepareRolePrivilegeInsert(rps);
+    let [result] = await destConn.query(stmt);
+  }
+
+  //Do the same sh*t for role_role
+  let [rrs] = await srcConn.query('SELECT * FROM role_role');
+  if(rrs.length>0) {
+    stmt = prepareRoleRoleInsert(rrs);
+    [result] = await destConn.query(stmt);
+  }
+}
+
+async function updateMovedUsersRoles(srcConn, destConn) {
+    let query = 'SELECT * FROM user_role WHERE user_id NOT IN (1,2)';
+    let [rows] = await srcConn.query(query);
+    if(rows.length > 0 ) {
+      let insert = prepareUserRoleInsert(rows);
+      let [result] = await destConn.query(insert);
+    }
 }
 
 async function getUsersCount(connection, condition) {
@@ -406,7 +540,13 @@ async function mergeAlgorithm() {
               count = await movePersonNamesforMovedPersons(srcConn, destConn);
               await destConn.query('COMMIT');
 
-              console.log(`${count} names moved`)
+              console.log(`${count} names moved`);
+              console.log(`Consolidating roles & privileges`);
+              await destConn.query('START TRANSACTION');
+              await consolidateRolesAndPrivileges(srcConn, destConn);
+              await updateMovedUsersRoles(srcConn, destConn);
+              await destConn.query('COMMIT');
+              console.log('Consolidation successfully...');
             }
             catch(dbEx) {
               await destConn.query('ROLLBACK');
