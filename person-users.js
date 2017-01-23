@@ -10,6 +10,7 @@ const _ = require('lodash');
 const userMap = new Map();
 const personMap = new Map();
 const relationshipTypeMap = new Map();
+const personAttributeTypeMap = new Map();
 const movedItemsCount = {   // Not used anywhere yet.
   persons: 0,
   users: 0
@@ -91,6 +92,44 @@ function preparePersonNameInsert(rows, nextPersonNameId) {
   return [query, nextPersonNameId];
 }
 
+function preparePersonAddressInsert(rows, nextId) {
+  let insert = 'INSERT INTO person_address (person_address_id, person_id, '
+        + 'preferred, address1, address2, city_village, state_province, '
+        + 'postal_code, country, latitude, longitude, creator, date_created, '
+        + 'voided, voided_by, date_voided, void_reason, county_district, '
+        + 'address3, address6, address5, address4, uuid, date_changed, '
+        + 'changed_by, start_date, end_date) VALUES ';
+
+  let toBeinserted = '';
+  rows.forEach(row => {
+    if(toBeinserted.length > 1) {
+      toBeinserted += ',';
+    }
+    let voidedBy = row['voided_by'] === null ? null : userMap.get(row['voided_by']);
+    let changedBy = row['changed_by'] === null ? null : userMap.get(row['changed_by']);
+
+    toBeinserted += `(${nextId}, ${personMap.get(row['person_id'])}, `
+        + `${row['preferred']}, ${_handleString(row['address1'])}, `
+        + `${_handleString(row['address2'])}, ${_handleString(row['city_village'])}, `
+        + `${_handleString(row['state_province'])}, ${_handleString(row['postal_code'])}, `
+        + `${_handleString(row['country'])}, ${_handleString(row['latitude'])}, `
+        + `${_handleString(row['longitude'])}, ${userMap.get(row['creator'])}, `
+        + `${_handleString(utils.formatDate(row['date_created']))}, ${row['voided']}, `
+        + `${voidedBy}, ${_handleString(utils.formatDate(row['date_voided']))}, `
+        + `${_handleString(row['void_reason'])}, ${_handleString(row['county_district'])}, `
+        + `${_handleString(row['address3'])}, ${_handleString(row['address6'])}, `
+        + `${_handleString(row['address5'])}, ${_handleString(row['address4'])}, `
+        + `${_uuid(row['uuid'])}, ${_handleString(utils.formatDate(row['date_changed']))}, `
+        + `${changedBy}, ${_handleString(utils.formatDate(row['start_date']))}, `
+        + `${_handleString(utils.formatDate(row['end_date']))})`;
+
+    nextId++;
+  });
+
+  let insertStatement = insert + toBeinserted;
+  return [insertStatement, nextId];
+}
+
 function prepareRelationshipTypeInsert(rows, nextId) {
   let insert = 'INSERT INTO relationship_type (relationship_type_id, a_is_to_b, '
         + 'b_is_to_a, preferred, weight, description, creator, date_created, '
@@ -110,15 +149,80 @@ function prepareRelationshipTypeInsert(rows, nextId) {
         + `${_handleString(utils.formatDate(row['date_retired']))}, `
         + `${_handleString(row['retire_reason'])})`;
 
-        nextId++;
+    //Update the map
+    relationshipTypeMap.set(row['relationship_type_id'], nextId);
+    nextId++;
   });
 
   let insertStatement = insert + toBeinserted;
   return [insertStatement, nextId];
 }
 
+function preparePersonAttributeTypeInsert(rows, nextId) {
+  let insert = 'INSERT INTO person_attribute_type(person_attribute_type_id, '
+        + 'name, description, format, foreign_key, searchable, creator, '
+        + 'date_created, changed_by, date_changed, retired, retired_by, '
+        + 'date_retired, retire_reason, edit_privilege, uuid, sort_weight) '
+        + 'VALUES ';
+
+  let toBeinserted = '';
+  rows.forEach(row => {
+    if(toBeinserted.length > 1) {
+      toBeinserted += ',';
+    }
+    let retireBy = row['retired_by'] === null ? null : userMap.get(row['retired_by']);
+    let changedBy = row['changed_by'] === null ? null : userMap.get(row['changed_by']);
+
+    toBeinserted += `(${nextId}, ${_handleString(row['name'])}, `
+        + `${_handleString(row['description'])}, ${_handleString(row['format'])}, `
+        + `${row['foreign_key']}, ${row['searchable']}, ${userMap.get(row['creator'])}, `
+        + `${_handleString(utils.formatDate(row['date_created']))}, ${changedBy}, `
+        + `${_handleString(utils.formatDate(row['date_changed']))}, ${row['retired']}, `
+        + `${retiredBy}, ${_handleString(utils.formatDate(row['date_retired']))}, `
+        + `${_handleString(row['retire_reason'])}, ${_handleString(row['edit_privilege'])}, `
+        + `${_uuid(row['uuid'])}, ${row['sort_weight']})`;
+
+    //Update the map
+    personAttributeTypeMap.set(row['person_attribute_type_id'], nextId);
+    nextId++;
+  });
+
+  let insertStatement = insert + toBeinserted;
+  return [insertStatement, nextId];
+}
+
+function preparePersonAttributeInsert(rows, nextId) {
+    let insert = 'INSERT INTO person_attribute(person_attribute_id, person_id, '
+          + 'value, person_attribute_type_id, creator, date_created, changed_by, '
+          + 'date_changed, voided, voided_by, date_voided, void_reason, uuid) '
+          + 'VALUES ';
+
+    let toBeinserted = '';
+    rows.forEach(row => {
+      if(toBeinserted.length > 1) {
+        toBeinserted += ',';
+      }
+      let voidedBy = row['voided_by'] === null ? null : userMap.get(row['voided_by']);
+      let changedBy = row['changed_by'] === null ? null : userMap.get(row['changed_by']);
+
+      toBeinserted += `(${nextId}, ${personMap.get(row['person_id'])}, `
+          + `${_handleString(row['value'])}, `
+          + `${personAttributeTypeMap.get(row['person_attribute_type_id'])}, `
+          + `${userMap.get(row['creator'])}, `
+          + `${_handleString(utils.formatDate(row['date_created']))}, `
+          + `${changedBy}, ${_handleString(utils.formatDate(row['date_changed']))}, `
+          + `${row['voided']}, ${voidedBy}, ${_handleString(utils.formatDate(row['date_voided']))}, `
+          + `${_handleString(row['void_reason'])}, ${_uuid(row['uuid'])})`
+
+      nextId++;
+    });
+
+    let insertStatement = insert + toBeinserted;
+    return [insertStatement, nextId];
+}
+
 function prepareRelationshipInsert(rows, nextId) {
-  let insert = 'INSERT INTO relationship (relationship_id, person_a, relationship, '
+  let insert = 'INSERT INTO relationship(relationship_id, person_a, relationship, '
         + 'person_b, creator, date_created, voided, voided_by, date_voided, '
         + 'void_reason, uuid, date_changed, changed_by, start_date, end_date)'
         + ' VALUES ';
@@ -316,6 +420,32 @@ async function consolidateRolesAndPrivileges(srcConn, destConn) {
   }
 }
 
+async function consolidatePersonAttributeTypes(srcConn, destConn) {
+  let query = 'SELECT * FROM person_attribute_type';
+  let [sAttributeTypes] = await srcConn.query(query);
+  let [dAttributeTypes] = await destConn.query(query);
+
+  let toAdd = [];
+  sAttributeTypes.forEach(sAttributeType => {
+    let match = dAttributeTypes.find(dAttributeType => {
+      return sAttributeType['name'] === dAttributeType['name'];
+    });
+    if(match !== undefined) {
+      personAttributeTypeMap.set(sAttributeType['person_attribute_type_id'],
+        match['person_attribute_type_id']);
+    }
+    else {
+      toAdd.push(sAttributeType);
+    }
+  });
+  if(toAdd.length > 0) {
+    let nextId = await utils.getNextAutoIncrementId(destConn, 'person_attribute_type');
+
+    let [stmt] = preparePersonAttributeTypeInsert(toAdd, nextId);
+    let [result] = await destConn.query(stmt);
+  }
+}
+
 async function consolidateRelationshipTypes(srcConn, destConn) {
   let query = 'SELECT * FROM relationship_type';
   let [sRelshipTypes] = await srcConn.query(query);
@@ -340,17 +470,26 @@ async function consolidateRelationshipTypes(srcConn, destConn) {
       await utils.getNextAutoIncrementId(destConn, 'relationship_type');
 
     let [stmt] = prepareRelationshipTypeInsert(toAdd, nextRelationshipTypeId);
-    console.log(stmt);
     let [result] = await destConn.query(stmt);
   }
 }
 
-async function moveRelationships(srcConn, destConn) {
+/**
+ * Utility function that moves all table records in BATCH_SIZE batches
+ * @param srcConn
+ * @param destConn
+ * @param tableName:String Name of table whose records are to be moved.
+ * @param orderColumn:String Name of the column to order records with.
+ * @param insertQueryPrepareFunction: function prepares the insert query
+ * @return count of records moved. (or a promise that resolves to count)
+ */
+async function moveAllTableRecords(srcConn, destConn, tableName, orderColumn,
+  insertQueryPrepareFunction) {
   // Get the count to be pushed
-  let countToMove = await getCount(srcConn, 'relationship');
-  let nextRelationshipId = await utils.getNextAutoIncrementId(destConn, 'relationship');
+  let countToMove = await getCount(srcConn, tableName);
+  let nextAutoIncr = await utils.getNextAutoIncrementId(destConn, tableName);
 
-  let fetchQuery = 'SELECT * FROM relationship ORDER by relationship_id LIMIT ';
+  let fetchQuery = `SELECT * FROM ${tableName} ORDER by ${orderColumn} LIMIT `;
   let start = 0;
   let temp = countToMove;
   let moved = 0;
@@ -366,15 +505,29 @@ async function moveRelationships(srcConn, destConn) {
           temp = 0;
       }
       start += BATCH_SIZE;
-      // console.log('fetch query', query);
       let [r] = await srcConn.query(query);
-      let [q, nextId] = prepareRelationshipInsert(r, nextRelationshipId);
+      let [q, nextId] = insertQueryPrepareFunction.call(null,r, nextAutoIncr);
 
       // console.log('Running query:', q);
       await destConn.query(q);
-      nextRelationshipId = nextId;
+      nextAutoIncr = nextId;
   }
   return moved;
+}
+
+async function moveRelationships(srcConn, destConn) {
+  return await moveAllTableRecords(srcConn, destConn, 'relationship',
+                              'relationship_id',prepareRelationshipInsert);
+}
+
+async function movePersonAddresses(srcConn, destConn) {
+  return await moveAllTableRecords(srcConn, destConn, 'person_address',
+                          'person_address_id',preparePersonAddressInsert);
+}
+
+async function movePersonAttributes(srcConn, destConn) {
+  return await moveAllTableRecords(srcConn, destConn, 'person_attribute',
+                          'person_attribute_id', preparePersonAttributeInsert);
 }
 
 async function updateMovedUsersRoles(srcConn, destConn) {
@@ -671,6 +824,9 @@ async function mergeAlgorithm() {
               await destConn.query('START TRANSACTION');
               await consolidateRelationshipTypes(srcConn, destConn);
               await moveRelationships(srcConn, destConn);
+              await movePersonAddresses(srcConn, destConn);
+              await consolidatePersonAttributeTypes(srcConn, destConn);
+              await movePersonAttributes(srcConn, destConn);
               await destConn.query('COMMIT');
               console.log('Relationships moved successfully...');
             }
