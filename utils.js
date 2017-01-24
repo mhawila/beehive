@@ -1,5 +1,13 @@
 'use strict';
 const moment = require('moment');
+const mysql = require('mysql2');
+const uuidGenerator = require('uuid/v1');
+const config = require('./config');
+
+if(config.batchSize === undefined) {
+  config.batchSize = 500;
+};
+
 
 let getNextAutoIncrementId = async function(connection, table) {
   if(arguments.length < 2) {
@@ -19,6 +27,16 @@ let getNextAutoIncrementId = async function(connection, table) {
   }
 };
 
+let getCount = async function(connection, table, condition) {
+  let countQuery = `SELECT count(*) as table_count FROM ${table}`;
+  if(condition) {
+    countQuery += ' WHERE ' + condition;
+  }
+
+  let [results] = await connection.query(countQuery);
+  return results[0]['table_count'];
+}
+
 let formatDate = function(d, format) {
   //some how undefined is parsed by moment!!!!
   if(d==undefined) return null;
@@ -32,8 +50,71 @@ let logTime = function() {
   return formatDate(Date.now());
 }
 
+let stringValue = function(value) {
+  return mysql.escape(value);
+}
+
+function uuid(existing) {
+  if(config.generateNewUuids) return `'${uuidGenerator()}'`;
+  return `'${existing}'`;
+}
+
+/**
+ * Utility function that moves all table records in config.batchSize batches
+ * @param srcConn
+ * @param destConn
+ * @param tableName:String Name of table whose records are to be moved.
+ * @param orderColumn:String Name of the column to order records with.
+ * @param insertQueryPrepareFunction: function prepares the insert query
+ * @return count of records moved. (or a promise that resolves to count)
+ */
+let moveAllTableRecords = async function(srcConn, destConn, tableName, orderColumn,
+  insertQueryPrepareFunction) {
+  // Get the count to be pushed
+  let countToMove = await getCount(srcConn, tableName);
+  let nextAutoIncr = await getNextAutoIncrementId(destConn, tableName);
+
+  let fetchQuery = `SELECT * FROM ${tableName} ORDER by ${orderColumn} LIMIT `;
+  let start = 0;
+  let temp = countToMove;
+  let moved = 0;
+  while (temp % config.batchSize > 0) {
+      let query = fetchQuery;
+      if (Math.floor(temp / config.batchSize) > 0) {
+          moved += config.batchSize;
+          query += start + ', ' + config.batchSize;
+          temp -= config.batchSize;
+      } else {
+          moved += temp;
+          query += start + ', ' + temp;
+          temp = 0;
+      }
+      start += config.batchSize;
+      let [r] = await srcConn.query(query);
+      let [q, nextId] = insertQueryPrepareFunction.call(null,r, nextAutoIncr);
+
+      // console.log('Running query:', q);
+      await destConn.query(q);
+      nextAutoIncr = nextId;
+  }
+  return moved;
+}
+
+let logError = function(message) {
+  console.error("\x1b[31m", message);
+}
+
+let logLog = function(message) {
+  console.log("\x1b[32m", message);
+}
+
 module.exports = {
   getNextAutoIncrementId: getNextAutoIncrementId,
+  getCount: getCount,
+  moveAllTableRecords: moveAllTableRecords,
   formatDate: formatDate,
   logTime: logTime,
+  logLog: logLog,
+  logError: logError,
+  uuid: uuid,
 };

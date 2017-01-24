@@ -5,6 +5,7 @@ const uuid = require('uuid/v1');
 const connection = require('./connection').connection;
 const utils = require('./utils');
 const logTime = utils.logTime;
+const moveAllTableRecords = utils.moveAllTableRecords;
 const config = require('./config');
 const _ = require('lodash');
 const userMap = new Map();
@@ -351,18 +352,6 @@ function prepareUserRoleInsert(rows) {
   return insert + toBeinserted;
 }
 
-// Created after realizing how getUsersCount & getPersonsCount can be
-// generalized.
-async function getCount(connection, table, condition) {
-  let countQuery = `SELECT count(*) as table_count FROM ${table}`;
-  if(condition) {
-    countQuery += ' WHERE ' + condition;
-  }
-
-  let [results] = await connection.query(countQuery);
-  return results[0]['table_count'];
-}
-
 async function consolidateRolesAndPrivileges(srcConn, destConn) {
   let __addRolesNotAlreadyInDestination = async function () {
       let roleQuery = 'SELECT * FROM role';
@@ -472,47 +461,6 @@ async function consolidateRelationshipTypes(srcConn, destConn) {
     let [stmt] = prepareRelationshipTypeInsert(toAdd, nextRelationshipTypeId);
     let [result] = await destConn.query(stmt);
   }
-}
-
-/**
- * Utility function that moves all table records in BATCH_SIZE batches
- * @param srcConn
- * @param destConn
- * @param tableName:String Name of table whose records are to be moved.
- * @param orderColumn:String Name of the column to order records with.
- * @param insertQueryPrepareFunction: function prepares the insert query
- * @return count of records moved. (or a promise that resolves to count)
- */
-async function moveAllTableRecords(srcConn, destConn, tableName, orderColumn,
-  insertQueryPrepareFunction) {
-  // Get the count to be pushed
-  let countToMove = await getCount(srcConn, tableName);
-  let nextAutoIncr = await utils.getNextAutoIncrementId(destConn, tableName);
-
-  let fetchQuery = `SELECT * FROM ${tableName} ORDER by ${orderColumn} LIMIT `;
-  let start = 0;
-  let temp = countToMove;
-  let moved = 0;
-  while (temp % BATCH_SIZE > 0) {
-      let query = fetchQuery;
-      if (Math.floor(temp / BATCH_SIZE) > 0) {
-          moved += BATCH_SIZE;
-          query += start + ', ' + BATCH_SIZE;
-          temp -= BATCH_SIZE;
-      } else {
-          moved += temp;
-          query += start + ', ' + temp;
-          temp = 0;
-      }
-      start += BATCH_SIZE;
-      let [r] = await srcConn.query(query);
-      let [q, nextId] = insertQueryPrepareFunction.call(null,r, nextAutoIncr);
-
-      // console.log('Running query:', q);
-      await destConn.query(q);
-      nextAutoIncr = nextId;
-  }
-  return moved;
 }
 
 async function moveRelationships(srcConn, destConn) {
