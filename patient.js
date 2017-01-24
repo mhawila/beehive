@@ -6,7 +6,7 @@ const strValue = utils.stringValue;
 const getCount = utils.getCount;
 const moveAllTableRecords = utils.moveAllTableRecords;
 
-const identifierTypeMap = new Map();
+let beehive = global.beehive;
 
 function preparePatientInsert(rows) {
   let insert = 'INSERT INTO patient(patient_id, tribe, creator, date_created, '
@@ -19,8 +19,8 @@ function preparePatientInsert(rows) {
           toBeinserted += ',';
       }
 
-      let voidedBy = row['voided_by'] === null ? null : userMap.get(row['voided_by']);
-      let changedBy = row['changed_by'] === null ? null : userMap.get(row['changed_by']);
+      let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
+      let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
       toBeinserted += `(${personMap.get(row['patient_id'])}, ${row['tribe']}, `
           + `${userMap.get(row['creator'])}, `
@@ -47,7 +47,9 @@ function prepareIdentifierTypeInsert(rows, nextId) {
           toBeinserted += ',';
       }
 
-      let retiredBy = row['retired_by'] === null ? null : userMap.get(row['retired_by']);
+      let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
+
+      beehive.identifierTypeMap.set(row['patient_identifier_type_id'], nextId);
 
       toBeinserted += `(${nextId}, ${strValue(row['name'])}, `
           + `${strValue(row['description'])}, ${strValue(row['format'])}, `
@@ -78,8 +80,8 @@ function preparePatientIdentifierInsert(rows, nextId) {
           toBeinserted += ',';
       }
 
-      let voidedBy = row['voided_by'] === null ? null : userMap.get(row['voided_by']);
-      let changedBy = row['changed_by'] === null ? null : userMap.get(row['changed_by']);
+      let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
+      let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
       toBeinserted += `(${nextId}, ${personMap.get(row['patient_id'])}, `
           + `${strValue(row['identifier'])}, ${identifierTypeMap.get(row['identifier_type'])}, `
@@ -109,7 +111,7 @@ async function consolidatePatientIdentifierTypes(srcConn, destConn) {
     });
 
     if(match !== undefined && match !== null) {
-      identifierTypeMap.set(srcPatIdType['patient_identifier_type_id'],
+      beehive.identifierTypeMap.set(srcPatIdType['patient_identifier_type_id'],
                           match['patient_identifier_type_id']);
     }
     else {

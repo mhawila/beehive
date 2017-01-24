@@ -2,6 +2,8 @@ let utils = require('./utils');
 let strValue = utils.stringValue;
 let moveAllTableRecords = utils.moveAllTableRecords;
 
+let beehive = global.beehive;
+
 function prepareVisitTypeInsert(rows, nextId) {
   let insert = 'INSERT INTO visit_type(visit_type_id, name, description, '
         + 'creator, date_created, changed_by, date_changed, retired, retired_by,'
@@ -13,10 +15,10 @@ function prepareVisitTypeInsert(rows, nextId) {
           toBeinserted += ',';
       }
 
-      let retiredBy = row['retired_by'] === null ? null : userMap.get(row['retired_by']);
-      let changedBy = row['changed_by'] === null ? null : userMap.get(row['changed_by']);
+      let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
+      let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
-      visitTypeMap.set(row['visit_type_id'], nextId);
+      beehive.visitTypeMap.set(row['visit_type_id'], nextId);
 
       toBeinserted += `(${nextId}, ${strValue(row['name'])}, `
           + `${strValue(row['description'])}, `
@@ -45,10 +47,10 @@ function prepareVisitInsert(rows, nextId) {
     if(toBeinserted.length > 1) {
       toBeinserted += ',';
     }
-    let voidedBy = row['voided_by'] === null ? null : userMap.get(row['voided_by']);
-    let changedBy = row['changed_by'] === null ? null : userMap.get(row['changed_by']);
+    let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
+    let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
-    visitMap.set(row['visit_id'], nextId);
+    beehive.visitMap.set(row['visit_id'], nextId);
 
     toBeinserted += `(${nextId}, ${personMap.get(row['patient_id'])}, `
         + `${visitTypeMap.get(row['visit_type_id'])}, `
@@ -80,7 +82,7 @@ async function consolidateVisitTypes(srcConn, destConn) {
     });
 
     if(match !== undefined && match !== null) {
-      visitTypeMap.set(srcVisitType['visit_type_id'],
+      beehive.visitTypeMap.set(srcVisitType['visit_type_id'],
                           match['visit_type_id']);
     }
     else {

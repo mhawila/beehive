@@ -1,31 +1,13 @@
 'use strict';
-const moment = require('moment');
-const mysql = require('mysql2');
-const uuid = require('uuid/v1');
 const connection = require('./connection').connection;
 const utils = require('./utils');
+const strValue = utils.stringValue;
+const uuid = utils.uuid;
 const logTime = utils.logTime;
 const moveAllTableRecords = utils.moveAllTableRecords;
 const config = require('./config');
-const _ = require('lodash');
-const userMap = new Map();
-const personMap = new Map();
-const relationshipTypeMap = new Map();
-const personAttributeTypeMap = new Map();
-const movedItemsCount = {   // Not used anywhere yet.
-  persons: 0,
-  users: 0
-};
-const BATCH_SIZE = config.batchSize || 500;
 
-function _handleString(value) {
-  return mysql.escape(value);
-}
-
-function _uuid(existing) {
-  if(config.generateNewUuids) return `'${uuid()}'`;
-  return `'${existing}'`;
-}
+let beehive = global.beehive;
 
 function preparePersonInsert(rows, nextPersonId) {
     let insert = 'INSERT INTO person(person_id, gender, birthdate,' +
@@ -34,21 +16,21 @@ function preparePersonInsert(rows, nextPersonId) {
         'date_voided, void_reason, uuid) VALUES ';
 
     let toBeinserted = '';
-    _.each(rows, row => {
+    rows.forEach(row => {
         if (toBeinserted.length > 1) {
             toBeinserted += ',';
         }
-        personMap.set(row['person_id'], nextPersonId);
+        beehive.personMap.set(row['person_id'], nextPersonId);
         toBeinserted += `(${nextPersonId}, '${row['gender']}', `
-            + `${_handleString(utils.formatDate(row['birthdate']))},`
-            + `${_handleString(row['birthdate_estimated'])}, ${row['dead']},`
-            + `${_handleString(utils.formatDate(row['deathdate']))}, `
-            + `${_handleString(row['cause_of_death'])}, ${userMap.get(row['creator'])}, `
-            + `${_handleString(utils.formatDate(row['date_created']))},`
-            + `${row['changed_by']}, ${_handleString(utils.formatDate(row['date_changed']))},`
+            + `${strValue(utils.formatDate(row['birthdate']))},`
+            + `${strValue(row['birthdate_estimated'])}, ${row['dead']},`
+            + `${strValue(utils.formatDate(row['deathdate']))}, `
+            + `${strValue(row['cause_of_death'])}, ${userMap.get(row['creator'])}, `
+            + `${strValue(utils.formatDate(row['date_created']))},`
+            + `${row['changed_by']}, ${strValue(utils.formatDate(row['date_changed']))},`
             + `${row['voided']}, ${row['voided_by']},`
-            + `${_handleString(utils.formatDate(row['date_voided']))},`
-            + `${_handleString(row['void_reason'])}, ${_uuid(row['uuid'])})`;
+            + `${strValue(utils.formatDate(row['date_voided']))},`
+            + `${strValue(row['void_reason'])}, ${uuid(row['uuid'])})`;
         nextPersonId++;
     })
 
@@ -69,21 +51,21 @@ function preparePersonNameInsert(rows, nextPersonNameId) {
     if(toBeinserted.length > 1) {
       toBeinserted += ',';
     }
-    let currentPersonId = personMap.get(row['person_id']);
+    let currentPersonId = beehive.personMap.get(row['person_id']);
     if(currentPersonId !== undefined) {
-      let voidedBy = row['voided_by'] === null ? null : userMap.get(row['voided_by']);
-      let changedBy = row['changed_by'] === null ? null : userMap.get(row['changed_by']);
+      let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
+      let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
       toBeinserted += `(${nextPersonNameId}, ${row['preferred']}, ${currentPersonId}, `
-          + `${_handleString(row['prefix'])}, ${_handleString(row['given_name'])}, `
-          + `${_handleString(row['middle_name'])}, ${_handleString(row['family_name_prefix'])}, `
-          + `${_handleString(row['family_name'])}, ${_handleString(row['family_name2'])}, `
-          + `${_handleString(row['family_name_suffix'])}, ${_handleString(row['degree'])}, `
-          + `${userMap.get(row['creator'])}, ${_handleString(utils.formatDate(row['date_created']))}, `
+          + `${strValue(row['prefix'])}, ${strValue(row['given_name'])}, `
+          + `${strValue(row['middle_name'])}, ${strValue(row['family_name_prefix'])}, `
+          + `${strValue(row['family_name'])}, ${strValue(row['family_name2'])}, `
+          + `${strValue(row['family_name_suffix'])}, ${strValue(row['degree'])}, `
+          + `${userMap.get(row['creator'])}, ${strValue(utils.formatDate(row['date_created']))}, `
           + `${row['voided']}, ${voidedBy}, `
-          + `${_handleString(utils.formatDate(row['date_voided']))}, ${_handleString(row['void_reason'])}, `
-          + `${changedBy}, ${_handleString(utils.formatDate(row['date_changed']))}, `
-          + `${_uuid(row['uuid'])})`;
+          + `${strValue(utils.formatDate(row['date_voided']))}, ${strValue(row['void_reason'])}, `
+          + `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}, `
+          + `${uuid(row['uuid'])})`;
       nextPersonNameId++;
     }
   });
@@ -106,23 +88,23 @@ function preparePersonAddressInsert(rows, nextId) {
     if(toBeinserted.length > 1) {
       toBeinserted += ',';
     }
-    let voidedBy = row['voided_by'] === null ? null : userMap.get(row['voided_by']);
-    let changedBy = row['changed_by'] === null ? null : userMap.get(row['changed_by']);
+    let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
+    let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
     toBeinserted += `(${nextId}, ${personMap.get(row['person_id'])}, `
-        + `${row['preferred']}, ${_handleString(row['address1'])}, `
-        + `${_handleString(row['address2'])}, ${_handleString(row['city_village'])}, `
-        + `${_handleString(row['state_province'])}, ${_handleString(row['postal_code'])}, `
-        + `${_handleString(row['country'])}, ${_handleString(row['latitude'])}, `
-        + `${_handleString(row['longitude'])}, ${userMap.get(row['creator'])}, `
-        + `${_handleString(utils.formatDate(row['date_created']))}, ${row['voided']}, `
-        + `${voidedBy}, ${_handleString(utils.formatDate(row['date_voided']))}, `
-        + `${_handleString(row['void_reason'])}, ${_handleString(row['county_district'])}, `
-        + `${_handleString(row['address3'])}, ${_handleString(row['address6'])}, `
-        + `${_handleString(row['address5'])}, ${_handleString(row['address4'])}, `
-        + `${_uuid(row['uuid'])}, ${_handleString(utils.formatDate(row['date_changed']))}, `
-        + `${changedBy}, ${_handleString(utils.formatDate(row['start_date']))}, `
-        + `${_handleString(utils.formatDate(row['end_date']))})`;
+        + `${row['preferred']}, ${strValue(row['address1'])}, `
+        + `${strValue(row['address2'])}, ${strValue(row['city_village'])}, `
+        + `${strValue(row['state_province'])}, ${strValue(row['postal_code'])}, `
+        + `${strValue(row['country'])}, ${strValue(row['latitude'])}, `
+        + `${strValue(row['longitude'])}, ${userMap.get(row['creator'])}, `
+        + `${strValue(utils.formatDate(row['date_created']))}, ${row['voided']}, `
+        + `${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, `
+        + `${strValue(row['void_reason'])}, ${strValue(row['county_district'])}, `
+        + `${strValue(row['address3'])}, ${strValue(row['address6'])}, `
+        + `${strValue(row['address5'])}, ${strValue(row['address4'])}, `
+        + `${uuid(row['uuid'])}, ${strValue(utils.formatDate(row['date_changed']))}, `
+        + `${changedBy}, ${strValue(utils.formatDate(row['start_date']))}, `
+        + `${strValue(utils.formatDate(row['end_date']))})`;
 
     nextId++;
   });
@@ -141,17 +123,17 @@ function prepareRelationshipTypeInsert(rows, nextId) {
     if(toBeinserted.length > 1) {
       toBeinserted += ',';
     }
-    let retiredBy = row['retired_by'] === null ? null : userMap.get(row['retired_by']);
-    toBeinserted += `(${nextId}, ${_handleString(row['a_is_to_b'])}, `
-        + `${_handleString(row['b_is_to_a'])}, ${row['preferred']}, ${row['weight']}, `
-        + `${_handleString(row['description'])}, ${userMap.get(row['creator'])}, `
-        + `${_handleString(utils.formatDate(row['date_created']))}, `
-        + `${_uuid(row['uuid'])}, ${row['retired']}, ${retiredBy}, `
-        + `${_handleString(utils.formatDate(row['date_retired']))}, `
-        + `${_handleString(row['retire_reason'])})`;
+    let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
+    toBeinserted += `(${nextId}, ${strValue(row['a_is_to_b'])}, `
+        + `${strValue(row['b_is_to_a'])}, ${row['preferred']}, ${row['weight']}, `
+        + `${strValue(row['description'])}, ${userMap.get(row['creator'])}, `
+        + `${strValue(utils.formatDate(row['date_created']))}, `
+        + `${uuid(row['uuid'])}, ${row['retired']}, ${retiredBy}, `
+        + `${strValue(utils.formatDate(row['date_retired']))}, `
+        + `${strValue(row['retire_reason'])})`;
 
     //Update the map
-    relationshipTypeMap.set(row['relationship_type_id'], nextId);
+    beehive.relationshipTypeMap.set(row['relationship_type_id'], nextId);
     nextId++;
   });
 
@@ -171,20 +153,20 @@ function preparePersonAttributeTypeInsert(rows, nextId) {
     if(toBeinserted.length > 1) {
       toBeinserted += ',';
     }
-    let retireBy = row['retired_by'] === null ? null : userMap.get(row['retired_by']);
-    let changedBy = row['changed_by'] === null ? null : userMap.get(row['changed_by']);
+    let retireBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
+    let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
-    toBeinserted += `(${nextId}, ${_handleString(row['name'])}, `
-        + `${_handleString(row['description'])}, ${_handleString(row['format'])}, `
+    toBeinserted += `(${nextId}, ${strValue(row['name'])}, `
+        + `${strValue(row['description'])}, ${strValue(row['format'])}, `
         + `${row['foreign_key']}, ${row['searchable']}, ${userMap.get(row['creator'])}, `
-        + `${_handleString(utils.formatDate(row['date_created']))}, ${changedBy}, `
-        + `${_handleString(utils.formatDate(row['date_changed']))}, ${row['retired']}, `
-        + `${retiredBy}, ${_handleString(utils.formatDate(row['date_retired']))}, `
-        + `${_handleString(row['retire_reason'])}, ${_handleString(row['edit_privilege'])}, `
-        + `${_uuid(row['uuid'])}, ${row['sort_weight']})`;
+        + `${strValue(utils.formatDate(row['date_created']))}, ${changedBy}, `
+        + `${strValue(utils.formatDate(row['date_changed']))}, ${row['retired']}, `
+        + `${retiredBy}, ${strValue(utils.formatDate(row['date_retired']))}, `
+        + `${strValue(row['retire_reason'])}, ${strValue(row['edit_privilege'])}, `
+        + `${uuid(row['uuid'])}, ${row['sort_weight']})`;
 
     //Update the map
-    personAttributeTypeMap.set(row['person_attribute_type_id'], nextId);
+    beehive.personAttributeTypeMap.set(row['person_attribute_type_id'], nextId);
     nextId++;
   });
 
@@ -203,17 +185,17 @@ function preparePersonAttributeInsert(rows, nextId) {
       if(toBeinserted.length > 1) {
         toBeinserted += ',';
       }
-      let voidedBy = row['voided_by'] === null ? null : userMap.get(row['voided_by']);
-      let changedBy = row['changed_by'] === null ? null : userMap.get(row['changed_by']);
+      let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
+      let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
       toBeinserted += `(${nextId}, ${personMap.get(row['person_id'])}, `
-          + `${_handleString(row['value'])}, `
+          + `${strValue(row['value'])}, `
           + `${personAttributeTypeMap.get(row['person_attribute_type_id'])}, `
           + `${userMap.get(row['creator'])}, `
-          + `${_handleString(utils.formatDate(row['date_created']))}, `
-          + `${changedBy}, ${_handleString(utils.formatDate(row['date_changed']))}, `
-          + `${row['voided']}, ${voidedBy}, ${_handleString(utils.formatDate(row['date_voided']))}, `
-          + `${_handleString(row['void_reason'])}, ${_uuid(row['uuid'])})`
+          + `${strValue(utils.formatDate(row['date_created']))}, `
+          + `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}, `
+          + `${row['voided']}, ${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, `
+          + `${strValue(row['void_reason'])}, ${uuid(row['uuid'])})`
 
       nextId++;
     });
@@ -233,18 +215,18 @@ function prepareRelationshipInsert(rows, nextId) {
     if(toBeinserted.length > 1) {
       toBeinserted += ',';
     }
-    let voidedBy = row['voided_by'] === null ? null : userMap.get(row['voided_by']);
-    let changedBy = row['changed_by'] === null ? null : userMap.get(row['changed_by']);
+    let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
+    let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
     toBeinserted += `(${nextId}, ${personMap.get(row['person_a'])}, `
         + `${relationshipTypeMap.get(row['relationship'])}, `
         + `${personMap.get(row['person_b'])}, ${userMap.get(row['creator'])}, `
-        + `${_handleString(utils.formatDate(row['date_created']))}, `
-        + `${row['voided']}, ${voidedBy}, ${_handleString(utils.formatDate(row['date_voided']))}, `
-        + `${_handleString(row['void_reason'])}, ${_uuid(row['uuid'])}, `
-        + `${_handleString(utils.formatDate(row['date_changed']))}, `
-        + `${changedBy}, ${_handleString(utils.formatDate(row['start_date']))}, `
-        + `${_handleString(utils.formatDate(row['end_date']))})`;
+        + `${strValue(utils.formatDate(row['date_created']))}, `
+        + `${row['voided']}, ${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, `
+        + `${strValue(row['void_reason'])}, ${uuid(row['uuid'])}, `
+        + `${strValue(utils.formatDate(row['date_changed']))}, `
+        + `${changedBy}, ${strValue(utils.formatDate(row['start_date']))}, `
+        + `${strValue(utils.formatDate(row['end_date']))})`;
 
     nextId++;
   });
@@ -260,21 +242,21 @@ function prepareUserInsert(rows, nextUserId) {
               + 'date_retired, retire_reason, uuid) VALUES ';
 
   let toBeinserted = '';
-  _.each(rows, row => {
+  rows.forEach(row => {
       if (toBeinserted.length > 1) {
           toBeinserted += ',';
       }
-      userMap.set(row['user_id'], nextUserId);
-      toBeinserted += `(${nextUserId}, '${row['system_id']}', ${_handleString(row['username'])},`
-          + `'${row['password']}', '${row['salt']}', ${_handleString(row['secret_question'])}, `
-          + `${_handleString(row['secret_answer'])}, ${userMap.get(row['creator'])}, `
-          + `${_handleString(utils.formatDate(row['date_created']))}, `
+      beehive.userMap.set(row['user_id'], nextUserId);
+      toBeinserted += `(${nextUserId}, '${row['system_id']}', ${strValue(row['username'])},`
+          + `'${row['password']}', '${row['salt']}', ${strValue(row['secret_question'])}, `
+          + `${strValue(row['secret_answer'])}, ${userMap.get(row['creator'])}, `
+          + `${strValue(utils.formatDate(row['date_created']))}, `
           + `${row['changed_by']}, `
-          + `${_handleString(utils.formatDate(row['date_changed']))}, `
+          + `${strValue(utils.formatDate(row['date_changed']))}, `
           + `${personMap.get(row['person_id'])}, ${row['retired']}, `
           + `${row['retired_by']}, `
-          + `${_handleString(utils.formatDate(row['date_retired']))}, `
-          + `${_handleString(row['retire_reason'])}, ${_uuid(row['uuid'])})`;
+          + `${strValue(utils.formatDate(row['date_retired']))}, `
+          + `${strValue(row['retire_reason'])}, ${uuid(row['uuid'])})`;
 
       nextUserId++;
   });
@@ -291,9 +273,9 @@ function prepareRoleInsert(rows) {
     if(toBeinserted.length > 1) {
       toBeinserted += ',';
     }
-    toBeinserted += `(${_handleString(row['role'])},`
-    + `${_handleString(row['description'])}, `
-    + `${_uuid(row['uuid'])})`;
+    toBeinserted += `(${strValue(row['role'])},`
+    + `${strValue(row['description'])}, `
+    + `${uuid(row['uuid'])})`;
   });
   return insert + toBeinserted;
 }
@@ -305,9 +287,9 @@ function preparePrivilegeInsert(rows) {
     if(toBeinserted.length > 1) {
       toBeinserted += ',';
     }
-    toBeinserted += `(${_handleString(row['privilege'])},`
-    + `${_handleString(row['description'])}, `
-    + `${_uuid(row['uuid'])})`;
+    toBeinserted += `(${strValue(row['privilege'])},`
+    + `${strValue(row['description'])}, `
+    + `${uuid(row['uuid'])})`;
   });
   return insert + toBeinserted;
 }
@@ -319,7 +301,7 @@ function prepareRolePrivilegeInsert(rows) {
     if(toBeinserted.length > 1) {
       toBeinserted += ',';
     }
-    toBeinserted += `(${_handleString(row['role'])}, ${_handleString(row['privilege'])})`;
+    toBeinserted += `(${strValue(row['role'])}, ${strValue(row['privilege'])})`;
   });
   return insert + toBeinserted;
 }
@@ -331,8 +313,8 @@ function prepareRoleRoleInsert(rows) {
     if(toBeinserted.length > 1) {
       toBeinserted += ',';
     }
-    toBeinserted += `(${_handleString(row['parent_role'])},`
-                    + `${_handleString(row['child_role'])})`;
+    toBeinserted += `(${strValue(row['parent_role'])},`
+                    + `${strValue(row['child_role'])})`;
   });
   return insert + toBeinserted;
 }
@@ -344,9 +326,9 @@ function prepareUserRoleInsert(rows) {
     if(toBeinserted.length > 1) {
       toBeinserted += ',';
     }
-    let userId = userMap.get(row['user_id']);
+    let userId = beehive.userMap.get(row['user_id']);
     if(userId) {
-      toBeinserted += `(${userId}, ${_handleString(row['role'])})`;
+      toBeinserted += `(${userId}, ${strValue(row['role'])})`;
     }
   });
   return insert + toBeinserted;
@@ -420,7 +402,7 @@ async function consolidatePersonAttributeTypes(srcConn, destConn) {
       return sAttributeType['name'] === dAttributeType['name'];
     });
     if(match !== undefined) {
-      personAttributeTypeMap.set(sAttributeType['person_attribute_type_id'],
+      beehive.personAttributeTypeMap.set(sAttributeType['person_attribute_type_id'],
         match['person_attribute_type_id']);
     }
     else {
@@ -447,7 +429,7 @@ async function consolidateRelationshipTypes(srcConn, destConn) {
                   && sRelshipType['b_is_to_a'] === dRelshipType['b_is_to_a']);
     });
     if(match !== undefined) {
-      relationshipTypeMap.set(sRelshipType['relationship_type_id'],
+      beehive.relationshipTypeMap.set(sRelshipType['relationship_type_id'],
         match['relationship_type_id']);
     }
     else {
@@ -532,7 +514,7 @@ async function createUserTree(connection, rootUserId, tree) {
         let childrenQuery = 'SELECT user_id from users WHERE creator = ' + rootUserId;
         let [rows, fields] = await connection.query(childrenQuery);
         if (rows.length > 0) {
-            _.each(rows, row => {
+            rows.forEach(row => {
               if(row['user_id'] !== rootUserId) {
                 tempTree.children.push({
                     userId: row['user_id'],
@@ -542,7 +524,7 @@ async function createUserTree(connection, rootUserId, tree) {
             });
 
             // Build tree for each child.
-            _.each(tempTree.children, child => {
+            tempTree.children.forEach(child => {
                 createUserTree(connection, child.userId, child);
             });
         }
@@ -684,7 +666,7 @@ async function traverseUserTree(tree, srcConn,destConn) {
 async function mergeAlgorithm() {
     if(config.generateNewUuids === null || config.generateNewUuids === undefined) {
       throw new Error('Please specify how you want UUIDs to be handled by '
-        + 'specify "generateNewUuids" config option as true/false in '
+        + 'specifying "generateNewUuids" config option as true/false in '
         + 'config.json file');
     }
     let srcConn = null;
@@ -712,10 +694,10 @@ async function mergeAlgorithm() {
         let [rows, fields] = await srcConn.query(srcAdminUserQuery);
         // console.log(rows);
         let srcAdminUserId = 1;
-        if (!_.some(rows, row => {
-                return row['user_id'] === 1;
+        if (rows.every(row => {
+                return row['user_id'] ==! 1;
             })) {
-            let r = _.find(rows, row => {
+            let r = rows.find(row => {
                 return row['system_id'] === 'admin';
             });
 
@@ -723,7 +705,7 @@ async function mergeAlgorithm() {
         }
 
         //Update the user map with user0's mappings.
-        userMap.set(srcAdminUserId, 1);
+        beehive.userMap.set(srcAdminUserId, 1);
 
         // Create the user tree.
         let tree = await createUserTree(srcConn, srcAdminUserId);

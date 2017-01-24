@@ -2,6 +2,8 @@ let utils = require('./utils');
 let strValue = utils.stringValue;
 let moveAllTableRecords = utils.moveAllTableRecords;
 
+let beehive = global.beehive;
+
 function prepareProviderInsert(rows, nextId) {
   let insert = 'INSERT INTO provider(provider_id, person_id, name, identifier, '
         + 'creator, date_created, changed_by, date_changed, retired, retired_by, '
@@ -13,10 +15,10 @@ function prepareProviderInsert(rows, nextId) {
           toBeinserted += ',';
       }
 
-      let retiredBy = row['retired_by'] === null ? null : userMap.get(row['retired_by']);
-      let changedBy = row['changed_by'] === null ? null : userMap.get(row['changed_by']);
+      let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
+      let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
-      providerMap.set(row['provider_id'], nextId);
+      beehive.providerMap.set(row['provider_id'], nextId);
       toBeinserted += `(${nextId}, ${personMap.get(row['person_id'])}, `
           + `${strValue(row['name'])}, ${strValue(row['identifier'])}, `
           + `${userMap.get(row['creator'])}, `
@@ -46,10 +48,10 @@ function prepareProviderAttributeTypeInsert(rows, nextId) {
           toBeinserted += ',';
       }
 
-      let retiredBy = row['retired_by'] === null ? null : userMap.get(row['retired_by']);
-      let changedBy = row['changed_by'] === null ? null : userMap.get(row['changed_by']);
+      let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
+      let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
-      providerAttributeTypeMap.set(row['provider_attribute_type_id'], nextId);
+      beehive.providerAttributeTypeMap.set(row['provider_attribute_type_id'], nextId);
       toBeinserted += `(${nextId}, ${strValue(row['name'])}, `
           + `${strValue(row['description'])}, ${strValue(row['datatype'])}, `
           + `${strValue(row['datatype_config'])}, ${strValue(row['preferred_handler'])}, `
@@ -79,8 +81,8 @@ function prepareProviderAttributeInsert(rows, nextId) {
     if(toBeinserted.length > 1) {
       toBeinserted += ',';
     }
-    let voidedBy = row['voided_by'] === null ? null : userMap.get(row['voided_by']);
-    let changedBy = row['changed_by'] === null ? null : userMap.get(row['changed_by']);
+    let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
+    let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
     toBeinserted += `(${nextId}, ${providerMap.get(row['provider_id'])}, `
         + `${providerAttributeTypeMap.get(row['attribute_type_id'])}, `
@@ -110,7 +112,7 @@ async function consolidateProviderAttributeTypes(srcConn, destConn) {
     });
 
     if(match !== undefined && match !== null) {
-      providerAttributeTypeMap.set(srcProvAttType['provider_attribute_type_id'],
+      beehive.providerAttributeTypeMap.set(srcProvAttType['provider_attribute_type_id'],
                           match['provider_attribute_type_id']);
     }
     else {

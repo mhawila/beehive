@@ -2,6 +2,8 @@ let utils = require('./utils');
 let strValue = utils.stringValue;
 let moveAllTableRecords = utils.moveAllTableRecords;
 
+let beehive = global.beehive;
+
 function prepareEncounterRoleInsert(rows, nextId) {
   let insert = 'INSERT INTO encounter_role(encounter_role_id, name, description, '
         + 'creator, date_created, changed_by, date_changed, retired, retired_by,'
@@ -13,10 +15,10 @@ function prepareEncounterRoleInsert(rows, nextId) {
           toBeinserted += ',';
       }
 
-      let retiredBy = row['retired_by'] === null ? null : userMap.get(row['retired_by']);
-      let changedBy = row['changed_by'] === null ? null : userMap.get(row['changed_by']);
+      let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
+      let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
-      encounterRoleMap.set(row['encounter_role_id'], nextId);
+      beehive.encounterRoleMap.set(row['encounter_role_id'], nextId);
 
       toBeinserted += `(${nextId}, ${strValue(row['name'])}, `
           + `${strValue(row['description'])}, `
@@ -45,8 +47,8 @@ function prepareEncounterProviderInsert(rows, nextId) {
     if(toBeinserted.length > 1) {
       toBeinserted += ',';
     }
-    let voidedBy = row['voided_by'] === null ? null : userMap.get(row['voided_by']);
-    let changedBy = row['changed_by'] === null ? null : userMap.get(row['changed_by']);
+    let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
+    let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
     toBeinserted += `(${nextId}, ${encounterMap.get(row['encounter_id'])}, `
         + `${providerMap.get(row['provider_id'])}, `
@@ -75,9 +77,9 @@ function prepareEncounterTypeInsert(rows, nextId) {
          toBeinserted += ',';
      }
 
-     let retiredBy = row['retired_by'] === null ? null : userMap.get(row['retired_by']);
+     let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
 
-     encounterTypeMap.set(row['encounter_type_id'], nextId);
+     beehive.encounterTypeMap.set(row['encounter_type_id'], nextId);
 
      toBeinserted += `(${nextId}, ${strValue(row['name'])}, `
          + `${strValue(row['description'])}, `
@@ -105,10 +107,10 @@ function prepareEncounterInsert(rows, nextId) {
     if(toBeinserted.length > 1) {
       toBeinserted += ',';
     }
-    let voidedBy = row['voided_by'] === null ? null : userMap.get(row['voided_by']);
-    let changedBy = row['changed_by'] === null ? null : userMap.get(row['changed_by']);
+    let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
+    let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
-    encounterMap.set(row['encounter_id'], nextId);
+    beehive.encounterMap.set(row['encounter_id'], nextId);
 
     toBeinserted += `(${nextId}, ${encounterTypeMap.get(row['encounter_type'])}, `
         + `${personMap.get(row['patient_id'])}, `
@@ -140,7 +142,7 @@ async function consolidateEncounterTypes(srcConn, destConn) {
     });
 
     if(match !== undefined && match !== null) {
-      EncounterTypeMap.set(srcEncounterType['encounter_type_id'],
+      beehive.encounterTypeMap.set(srcEncounterType['encounter_type_id'],
                           match['encounter_type_id']);
     }
     else {
@@ -169,7 +171,7 @@ async function consolidateEncounterRoles(srcConn, destConn) {
     });
 
     if(match !== undefined && match !== null) {
-      EncounterRoleMap.set(srcEncounterRole['encounter_role_id'],
+      beehive.encounterRoleMap.set(srcEncounterRole['encounter_role_id'],
                           match['encounter_role_id']);
     }
     else {

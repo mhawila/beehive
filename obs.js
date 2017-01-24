@@ -2,6 +2,8 @@ let utils = require('./utils');
 let strValue = utils.stringValue;
 let moveAllTableRecords = utils.moveAllTableRecords;
 
+let beehive = global.beehive;
+
 function prepareObsInsert(rows, nextId) {
   let insert = 'INSERT INTO obs(obs_id, person_id, concept_id, encounter_id, '
         + 'order_id, obs_datetime, location_id, obs_group_id, accession_number, '
@@ -16,10 +18,10 @@ function prepareObsInsert(rows, nextId) {
     if(toBeinserted.length > 1) {
       toBeinserted += ',';
     }
-    let voidedBy = row['voided_by'] === null ? null : userMap.get(row['voided_by']);
-    let changedBy = row['changed_by'] === null ? null : userMap.get(row['changed_by']);
+    let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
+    let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
-    obsMap.set(row['obs_id'], nextId);
+    beehive.obsMap.set(row['obs_id'], nextId);
 
     toBeinserted += `(${nextId}, ${personMap.get(row['person_id'])}, `
         + `${row['concept_id']},  ${encounterMap.get(row['encounter_id'])}, `
