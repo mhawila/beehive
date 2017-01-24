@@ -97,6 +97,35 @@ function preparePatientIdentifierInsert(rows, nextId) {
   return [query, nextId];
 }
 
+async function consolidatePatientIdentifierTypes(srcConn, destConn) {
+  let query = 'SELECT * FROM patient_identifier_type';
+  let [srcPatIdTypes] = await srcConn.query(query);
+  let [destPatIdTypes] = await destConn.query(query);
+
+  let missingInDest = [];
+  srcPatIdTypes.forEach(srcPatIdType => {
+    let match = destPatIdTypes.find(destPatIdType => {
+      return srcPatIdType['name'] === destPatIdType['name'];
+    });
+
+    if(match !== undefined && match !== null) {
+      identifierTypeMap.set(srcPatIdType['patient_identifier_type_id'],
+                          match['patient_identifier_type_id']);
+    }
+    else {
+      missingInDest.push(srcPatIdType);
+    }
+  });
+
+  if(missingInDest.length > 0) {
+    let nextPatIdTypeId =
+        await utils.getNextAutoIncrementId(destConn, 'patient_identifier_type');
+
+    let [sql] = prepareIdentifierTypeInsert(missingInDest, nextPatIdTypeId);
+    let [result] = await destConn.query(sql);
+  }
+}
+
 async function movePatients(srcConn, destConn) {
   return await moveAllTableRecords(srcConn, destConn, 'patient', 'patient_id',
                     preparePatientInsert);
