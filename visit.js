@@ -51,6 +51,7 @@ function prepareVisitInsert(rows, nextId) {
     visitMap.set(row['visit_id'], nextId);
 
     toBeinserted += `(${nextId}, ${personMap.get(row['patient_id'])}, `
+        + `${visitTypeMap.get(row['visit_type_id'])}, `
         + `${strValue(utils.formatDate(row['date_started']))}, `
         + `${strValue(utils.formatDate(row['date_stopped']))}, `
         + `${row['indication_concept_id']}, ${locationMap.get(row['location_id'])}, `
@@ -79,7 +80,7 @@ async function consolidateVisitTypes(srcConn, destConn) {
     });
 
     if(match !== undefined && match !== null) {
-      visityTypeMap.set(srcVisitType['visit_type_id'],
+      visitTypeMap.set(srcVisitType['visit_type_id'],
                           match['visit_type_id']);
     }
     else {
