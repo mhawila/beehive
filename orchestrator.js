@@ -2,8 +2,8 @@
 const connection = require('./connection').connection;
 const prepare = require('./preparation').prepare;
 const movePersonsUsersAndAssociatedTables = require('./person-users');
-const locationMover = require('./location');
-const patientMover = require('./patient');
+const locationsMover = require('./location');
+const patientsMover = require('./patient');
 const utils = require('./utils');
 const logTime = utils.logTime;
 const config = require('./config');
@@ -43,8 +43,11 @@ async function orchestration() {
         await movePersonsUsersAndAssociatedTables(srcConn, destConn);
 
         utils.logInfo('Consolidating locations...');
-        let movedLocations = await locationMover(srcConn, destConn);
+        let movedLocations = await locationsMover(srcConn, destConn);
         utils.logOk(`Ok...${movedLocations} locations moved.`);
+
+        //patients & identifiers
+        await patientsMover(srcConn, destConn);
         destConn.query('ROLLBACK');
     } catch (ex) {
         utils.logError(ex);

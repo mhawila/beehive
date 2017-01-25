@@ -93,7 +93,7 @@ let moveAllTableRecords = async function(srcConn, destConn, tableName, orderColu
         let [q, nextId] = insertQueryPrepareFunction.call(null, r, nextAutoIncr);
 
         if (!queryLogged) {
-            logDebug(`${tableName} query:`, q);
+            logDebug(`${tableName} insert statement:\n`, q);
             queryLogged = true;
         }
 

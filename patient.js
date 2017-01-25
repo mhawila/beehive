@@ -20,8 +20,8 @@ function preparePatientInsert(rows) {
         let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
         let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
-        toBeinserted += `(${personMap.get(row['patient_id'])}, ${row['tribe']}, ` +
-            `${userMap.get(row['creator'])}, ` +
+        toBeinserted += `(${beehive.personMap.get(row['patient_id'])}, ${row['tribe']}, ` +
+            `${beehive.userMap.get(row['creator'])}, ` +
             `${strValue(utils.formatDate(row['date_created']))},` +
             `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))},` +
             `${row['voided']}, ${voidedBy},` +
@@ -51,7 +51,7 @@ function prepareIdentifierTypeInsert(rows, nextId) {
 
         toBeinserted += `(${nextId}, ${strValue(row['name'])}, ` +
             `${strValue(row['description'])}, ${strValue(row['format'])}, ` +
-            `${row['check_digit']}, ${userMap.get(row['creator'])}, ` +
+            `${row['check_digit']}, ${beehive.userMap.get(row['creator'])}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ` +
             `${row['required']}, ${strValue(row['format_description'])}, ` +
             `${strValue(row['validator'])}, ${row['retired']}, ${retiredBy}, ` +
@@ -81,14 +81,14 @@ function preparePatientIdentifierInsert(rows, nextId) {
         let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
         let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
-        toBeinserted += `(${nextId}, ${personMap.get(row['patient_id'])}, ` +
-            `${strValue(row['identifier'])}, ${identifierTypeMap.get(row['identifier_type'])}, ` +
-            `${row['preferred']},  ${locationMap.get(row['location_id'])}, ` +
-            `${userMap.get(row['creator'])}, ` +
-            `${_handleString(utils.formatDate(row['date_created']))}, ${row['voided']}, ` +
-            `${voidedBy}, ${_handleString(utils.formatDate(row['date_voided']))}, ` +
-            `${_handleString(row['void_reason'])}, ${utils.uuid(row['uuid'])}, ` +
-            `${_handleString(utils.formatDate(row['date_changed']))}, ${changedBy})`
+        toBeinserted += `(${nextId}, ${beehive.personMap.get(row['patient_id'])}, ` +
+            `${strValue(row['identifier'])}, ${beehive.identifierTypeMap.get(row['identifier_type'])}, ` +
+            `${row['preferred']},  ${beehive.locationMap.get(row['location_id'])}, ` +
+            `${beehive.userMap.get(row['creator'])}, ` +
+            `${strValue(utils.formatDate(row['date_created']))}, ${row['voided']}, ` +
+            `${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, ` +
+            `${strValue(row['void_reason'])}, ${utils.uuid(row['uuid'])}, ` +
+            `${strValue(utils.formatDate(row['date_changed']))}, ${changedBy})`
 
         nextId++;
     });
@@ -121,7 +121,7 @@ async function consolidatePatientIdentifierTypes(srcConn, destConn) {
             await utils.getNextAutoIncrementId(destConn, 'patient_identifier_type');
 
         let [sql] = prepareIdentifierTypeInsert(missingInDest, nextPatIdTypeId);
-        logDebug('patient_identifier_type query: ', query);
+        logDebug('patient_identifier_type insert statement:\n', query);
         let [result] = await destConn.query(sql);
     }
 }
@@ -146,12 +146,12 @@ async function movePatientsAndIdentifiers(srcConn, destConn) {
     let expectedFinalCount = iDestPatientCount + moved;
 
     if (finalDestPatientCount === expectedFinalCount) {
-        utils.logOk(`OK... ${logTime()}: ${moved} patients moved successlly`);
+        utils.logOk(`OK... ${moved} patients moved.`);
 
         utils.logInfo('Consolidating & moving patient identifiers');
         await consolidatePatientIdentifierTypes(srcConn, destConn);
         moved = await movePatientIdentifiers(srcConn, destConn);
-        utils.logOk(`Ok...${moved} patient identifiers moved.`);
+        utils.logOk(`Ok... ${moved} patient identifiers moved.`);
     } else {
         let message = 'There is a problem in moving patients, the final expected ' +
             `count (${expectedFinalCount}) does not equal the actual final ` +
