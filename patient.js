@@ -1,6 +1,4 @@
 const utils = require('./utils');
-const logLog = utils.logLog;
-const logError = utils.logError;
 const logTime = utils.logTime;
 const strValue = utils.stringValue;
 const getCount = utils.getCount;
@@ -138,35 +136,28 @@ async function movePatientIdentifiers(srcConn, destConn) {
         'patient_identifier_id', preparePatientIdentifierInsert);
 }
 
-async function patientPhase(srcConn, destConn) {
+async function movePatientsAndIdentifiers(srcConn, destConn) {
     let iSrcPatientCount = await getCount(srcConn, 'patient');
     let iDestPatientCount = await getCount(destConn, 'patient');
 
-    try {
-        await destConn.query('START TRANSACTION');
+    let moved = await movePatients(srcConn, destConn);
 
-        let moved = await movePatients(srcConn, destConn);
+    let finalDestPatientCount = await getCount(destConn, 'patient');
+    let expectedFinalCount = iDestPatientCount + moved;
 
-        let finalDestPatientCount = await getCount(destConn, 'patient');
-        let expectedFinalCount = iDestPatientCount + moved;
+    if (finalDestPatientCount === expectedFinalCount) {
+        utils.logOk(`OK... ${logTime()}: ${moved} patients moved successlly`);
 
-        if (finalDestPatientCount === expectedFinalCount) {
-
-            await destConn.query('COMMIT');
-            logLog("\x1b[32m", `OK... ${logTime()}: ${moved} patients moved successlly`);
-        } else {
-            await destConn.query('ROLLBACK');
-
-            let message = 'There is a problem in moving patients, the final expected ' +
-                `count (${expectedFinalCount}) does not equal the actual final ` +
-                `count (${finalDestPatientCount})`;
-            logError(`Error: patient phase aborted`);
-            logError(message);
-        }
-    } catch (ex) {
-        await destConn.query('ROLLBACK');
-        throw ex;
+        utils.logInfo('Consolidating & moving patient identifiers');
+        await consolidatePatientIdentifierTypes(srcConn, destConn);
+        moved = await movePatientIdentifiers(srcConn, destConn);
+        utils.logOk(`Ok...${moved} patient identifiers moved.`);
+    } else {
+        let message = 'There is a problem in moving patients, the final expected ' +
+            `count (${expectedFinalCount}) does not equal the actual final ` +
+            `count (${finalDestPatientCount})`;
+        throw new Error(message);
     }
 }
 
-module.exports.patientPhase = patientPhase;
+module.exports = movePatientsAndIdentifiers;

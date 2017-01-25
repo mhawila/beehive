@@ -375,9 +375,10 @@ async function consolidateRolesAndPrivileges(srcConn, destConn) {
         return 0;
     };
 
-    await __addPrivilegesNotAlreadyInDestination();
-    await __addRolesNotAlreadyInDestination();
+    let movedPrivileges = await __addPrivilegesNotAlreadyInDestination();
+    let movedRoles = await __addRolesNotAlreadyInDestination();
 
+    utils.logDebug(`${movedPrivileges} privileges & ${movedRoles} roles moved`);
     //Insert role_privileges (insert ignore)
     let [rps] = await srcConn.query('SELECT * FROM role_privilege');
     if (rps.length > 0) {
@@ -751,6 +752,4 @@ async function movePersonsUsersAndAssociatedTables(srcConn, destConn) {
     }
 }
 
-module.exports = {
-    movePersonsUsersAndAssociatedTables: movePersonsUsersAndAssociatedTables,
-};
+module.exports = movePersonsUsersAndAssociatedTables;

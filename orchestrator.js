@@ -1,8 +1,9 @@
 'use strict';
 const connection = require('./connection').connection;
 const prepare = require('./preparation').prepare;
-const movePersonsUsersAndAssociatedTables =
-    require('./person-users').movePersonsUsersAndAssociatedTables;
+const movePersonsUsersAndAssociatedTables = require('./person-users');
+const locationMover = require('./location');
+const patientMover = require('./patient');
 const utils = require('./utils');
 const logTime = utils.logTime;
 const config = require('./config');
@@ -40,6 +41,10 @@ async function orchestration() {
         utils.logInfo(logTime(), ': Starting data migration ...');
         destConn.query('START TRANSACTION');
         await movePersonsUsersAndAssociatedTables(srcConn, destConn);
+
+        utils.logInfo('Consolidating locations...');
+        let movedLocations = await locationMover(srcConn, destConn);
+        utils.logOk(`Ok...${movedLocations} locations moved.`);
         destConn.query('ROLLBACK');
     } catch (ex) {
         utils.logError(ex);
