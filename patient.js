@@ -136,7 +136,8 @@ async function movePatientIdentifiers(srcConn, destConn) {
         'patient_identifier_id', preparePatientIdentifierInsert);
 }
 
-async function movePatientsAndIdentifiers(srcConn, destConn) {
+async function main(srcConn, destConn) {
+    utils.logInfo('Moving patients...');
     let iSrcPatientCount = await getCount(srcConn, 'patient');
     let iDestPatientCount = await getCount(destConn, 'patient');
 
@@ -160,4 +161,4 @@ async function movePatientsAndIdentifiers(srcConn, destConn) {
     }
 }
 
-module.exports = movePatientsAndIdentifiers;
+module.exports = main;

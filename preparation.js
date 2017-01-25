@@ -30,17 +30,18 @@
         if (result.length === 0) {
             //Not created yet.
             await _createTables(connection);
-            await _insertSource(connection, source);
+            // await _insertSource(connection, source);
         } else {
+            // TODO: If we decide to do transaction in chunks this section will be relevant
             // check if source already exists.
-            let query = 'SELECT source FROM beehive_merge_source where source = ' +
-                `'${source}'`;
-            [result] = await connection.query(query);
-            if (result.length === 0) {
-                await _insertSource(connection, source);
-            } else {
-                // TODO: Populate the maps.
-            }
+            // let query = 'SELECT source FROM beehive_merge_source where source = ' +
+            //     `'${source}'`;
+            // [result] = await connection.query(query);
+            // if (result.length === 0) {
+            //     await _insertSource(connection, source);
+            // } else {
+            //     // TODO: Populate the maps.
+            // }
         }
     }
 
@@ -95,5 +96,6 @@
 
     module.exports = {
         prepare: prepareForNewSource,
+        insertSource: _insertSource
     };
 })();

@@ -1,17 +1,22 @@
 'use strict';
 const connection = require('./connection').connection;
-const prepare = require('./preparation').prepare;
+const preparation = require('./preparation');
+const prepare = preparation.prepare;
+const insertSource = preparation.insertSource;
 const movePersonsUsersAndAssociatedTables = require('./person-users');
 const locationsMover = require('./location');
 const patientsMover = require('./patient');
 const providersMover = require('./provider');
 const visitsMover = require('./visit');
+const encounterMover = require('./encounter');
+const obsMover = require('./obs');
 const utils = require('./utils');
 const logTime = utils.logTime;
 const config = require('./config');
 
 
 async function orchestration() {
+    let startTime = Date.now();
     let initialErrors = [];
     if (config.source.location === undefined) {
         initialErrors.push('Error: source.location not specified in config.json file');
@@ -56,14 +61,26 @@ async function orchestration() {
 
         //visits & visit types
         await visitsMover(srcConn, destConn);
-        
-        destConn.query('ROLLBACK');
+
+        //encounters, encounter_types, encounter_roles & encounter_providers
+        await encounterMover(srcConn, destConn);
+
+        //obs
+        await obsMover(srcConn, destConn);
+
+        await insertSource(destConn,config.source.location);
+
+        destConn.query('COMMIT');
+        utils.logOk(`Done...All Data from ${config.source.location} copied.`);
     } catch (ex) {
+        destConn.query('ROLLBACK');
         utils.logError(ex);
-        utils.logInfo('Aborting...No data has been moved');
+        utils.logInfo('Aborting...Rolled back, no data has been moved');
     } finally {
         if (srcConn) srcConn.end();
         if (destConn) destConn.end();
+        let timeElapsed = (Date.now() - startTime);
+        utils.logInfo(`Time elapsed: ${timeElapsed} ms`);
     }
 }
 
