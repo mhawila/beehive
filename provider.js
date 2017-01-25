@@ -19,9 +19,10 @@ function prepareProviderInsert(rows, nextId) {
         let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
         beehive.providerMap.set(row['provider_id'], nextId);
-        toBeinserted += `(${nextId}, ${personMap.get(row['person_id'])}, ` +
+
+        toBeinserted += `(${nextId}, ${beehive.personMap.get(row['person_id'])}, ` +
             `${strValue(row['name'])}, ${strValue(row['identifier'])}, ` +
-            `${userMap.get(row['creator'])}, ` +
+            `${beehive.userMap.get(row['creator'])}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ${changedBy}, ` +
             `${strValue(utils.formatDate(row['date_changed']))}, ` +
             `${row['retired']}, ${retiredBy}, ` +
@@ -56,7 +57,7 @@ function prepareProviderAttributeTypeInsert(rows, nextId) {
             `${strValue(row['description'])}, ${strValue(row['datatype'])}, ` +
             `${strValue(row['datatype_config'])}, ${strValue(row['preferred_handler'])}, ` +
             `${strValue(row['handler_config'])}, ${row['min_occurs']}, ${row['max_occurs']}` +
-            `${userMap.get(row['creator'])}, ` +
+            `${beehive.userMap.get(row['creator'])}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ${changedBy}, ` +
             `${strValue(utils.formatDate(row['date_changed']))}, ` +
             `${row['retired']}, ${retiredBy}, ` +
@@ -84,10 +85,10 @@ function prepareProviderAttributeInsert(rows, nextId) {
         let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
         let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
-        toBeinserted += `(${nextId}, ${providerMap.get(row['provider_id'])}, ` +
-            `${providerAttributeTypeMap.get(row['attribute_type_id'])}, ` +
+        toBeinserted += `(${nextId}, ${beehive.providerMap.get(row['provider_id'])}, ` +
+            `${beehive.providerAttributeTypeMap.get(row['attribute_type_id'])}, ` +
             `${strValue(row['value_reference'])}, ` +
-            `${userMap.get(row['creator'])}, ` +
+            `${beehive.userMap.get(row['creator'])}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ` +
             `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}, ` +
             `${row['voided']}, ${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, ` +
@@ -124,6 +125,8 @@ async function consolidateProviderAttributeTypes(srcConn, destConn) {
             await utils.getNextAutoIncrementId(destConn, 'provider_attribute_type');
 
         let [sql] = prepareProviderAttributeTypeInsert(missingInDest, nextProvAttTypeId);
+
+        utils.logDebug('provider_attribute_type insert statement:\n', sql);
         let [result] = await destConn.query(sql);
     }
 }
@@ -137,3 +140,33 @@ async function moveProviderAttributes(srcConn, destConn) {
     return await moveAllTableRecords(srcConn, destConn, 'provider_attribute',
         'provider_attribute_id', prepareProviderAttributeInsert);
 }
+
+async function main(srcConn, destConn) {
+    let srcProvCount = await utils.getCount(srcConn, 'provider');
+    let initialDestCount = await utils.getCount(destConn, 'provider');
+
+    utils.logInfo('Moving providers...');
+    let moved = await moveProviders(srcConn, destConn);
+
+    let finalDestCount = await utils.getCount(destConn, 'provider');
+    let expectedFinalCount = initialDestCount + srcProvCount;
+    if(expectedFinalCount === finalDestCount) {
+        utils.logOk(`Ok... ${moved} providers moved.`);
+
+        utils.logInfo('Consolidating provider attribute types...');
+        await consolidateProviderAttributeTypes(srcConn, destConn);
+        utils.logOk('Ok...');
+
+        utils.logInfo('Moving provider attributes...');
+        let movedAttributes = await moveProviderAttributes(srcConn, destConn);
+        utils.logOk(`Ok... ${movedAttributes} provider attributes moved.`);
+    }
+    else {
+        let error = `Problem moving providers: expected final count ` +
+            `(${expectedFinalCount}) is not equal to actual count ` +
+            `(${finalDestCount})`;
+        throw new Error(error);
+    }
+}
+
+module.exports = main;

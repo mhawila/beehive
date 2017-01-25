@@ -4,6 +4,7 @@ const prepare = require('./preparation').prepare;
 const movePersonsUsersAndAssociatedTables = require('./person-users');
 const locationsMover = require('./location');
 const patientsMover = require('./patient');
+const providersMover = require('./provider');
 const utils = require('./utils');
 const logTime = utils.logTime;
 const config = require('./config');
@@ -48,6 +49,10 @@ async function orchestration() {
 
         //patients & identifiers
         await patientsMover(srcConn, destConn);
+
+        //providers & provider attributes
+        await providersMover(srcConn, destConn);
+
         destConn.query('ROLLBACK');
     } catch (ex) {
         utils.logError(ex);
