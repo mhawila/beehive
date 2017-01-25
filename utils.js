@@ -8,7 +8,6 @@ if(config.batchSize === undefined) {
   config.batchSize = 500;
 };
 
-
 let getNextAutoIncrementId = async function(connection, table) {
   if(arguments.length < 2) {
     throw new Error('This utility function expects connection & table in that order');
@@ -78,6 +77,7 @@ let moveAllTableRecords = async function(srcConn, destConn, tableName, orderColu
   let start = 0;
   let temp = countToMove;
   let moved = 0;
+  let queryLogged = false;
   while (temp % config.batchSize > 0) {
       let query = fetchQuery;
       if (Math.floor(temp / config.batchSize) > 0) {
@@ -93,28 +93,49 @@ let moveAllTableRecords = async function(srcConn, destConn, tableName, orderColu
       let [r] = await srcConn.query(query);
       let [q, nextId] = insertQueryPrepareFunction.call(null,r, nextAutoIncr);
 
-      // console.log('Running query:', q);
+      if(!queryLogged) {
+        logDebug(`${tableName} query:`, q);
+        queryLogged = true;
+      }
+
       await destConn.query(q);
       nextAutoIncr = nextId;
   }
   return moved;
 }
 
-let logError = function(message) {
-  console.error("\x1b[31m", message);
+let logError = function(...args) {
+  args.splice(0, 0, "\x1b[31m");
+  console.error.apply(null, args);
 }
 
-let logLog = function(message) {
-  console.log("\x1b[32m", message);
+let logOk = function(...args) {
+  args.splice(0, 0, "\x1b[32m");
+  console.log.apply(null, args);
+}
+
+let logDebug = function(...args) {
+  args.splice(0, 0, "\x1b[33m");
+  if(config.debug) {
+    console.log.apply(null, args);
+  }
+}
+
+let logInfo = function(...args) {
+  args.splice(0, 0, "\x1b[37m");
+  console.log.apply(null, args);
 }
 
 module.exports = {
   getNextAutoIncrementId: getNextAutoIncrementId,
   getCount: getCount,
+  stringValue: stringValue,
   moveAllTableRecords: moveAllTableRecords,
   formatDate: formatDate,
   logTime: logTime,
-  logLog: logLog,
+  logOk: logOk,
   logError: logError,
+  logDebug: logDebug,
+  logInfo: logInfo,
   uuid: uuid,
 };

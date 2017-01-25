@@ -1,5 +1,4 @@
 'use strict';
-const connection = require('./connection').connection;
 const utils = require('./utils');
 const strValue = utils.stringValue;
 const uuid = utils.uuid;
@@ -7,6 +6,7 @@ const logTime = utils.logTime;
 const moveAllTableRecords = utils.moveAllTableRecords;
 const config = require('./config');
 
+const BATCH_SIZE = config.batchSize || 200;
 let beehive = global.beehive;
 
 function preparePersonInsert(rows, nextPersonId) {
@@ -25,7 +25,7 @@ function preparePersonInsert(rows, nextPersonId) {
             + `${strValue(utils.formatDate(row['birthdate']))},`
             + `${strValue(row['birthdate_estimated'])}, ${row['dead']},`
             + `${strValue(utils.formatDate(row['deathdate']))}, `
-            + `${strValue(row['cause_of_death'])}, ${userMap.get(row['creator'])}, `
+            + `${strValue(row['cause_of_death'])}, ${beehive.userMap.get(row['creator'])}, `
             + `${strValue(utils.formatDate(row['date_created']))},`
             + `${row['changed_by']}, ${strValue(utils.formatDate(row['date_changed']))},`
             + `${row['voided']}, ${row['voided_by']},`
@@ -61,7 +61,7 @@ function preparePersonNameInsert(rows, nextPersonNameId) {
           + `${strValue(row['middle_name'])}, ${strValue(row['family_name_prefix'])}, `
           + `${strValue(row['family_name'])}, ${strValue(row['family_name2'])}, `
           + `${strValue(row['family_name_suffix'])}, ${strValue(row['degree'])}, `
-          + `${userMap.get(row['creator'])}, ${strValue(utils.formatDate(row['date_created']))}, `
+          + `${beehive.userMap.get(row['creator'])}, ${strValue(utils.formatDate(row['date_created']))}, `
           + `${row['voided']}, ${voidedBy}, `
           + `${strValue(utils.formatDate(row['date_voided']))}, ${strValue(row['void_reason'])}, `
           + `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}, `
@@ -91,12 +91,12 @@ function preparePersonAddressInsert(rows, nextId) {
     let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
     let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
-    toBeinserted += `(${nextId}, ${personMap.get(row['person_id'])}, `
+    toBeinserted += `(${nextId}, ${beehive.personMap.get(row['person_id'])}, `
         + `${row['preferred']}, ${strValue(row['address1'])}, `
         + `${strValue(row['address2'])}, ${strValue(row['city_village'])}, `
         + `${strValue(row['state_province'])}, ${strValue(row['postal_code'])}, `
         + `${strValue(row['country'])}, ${strValue(row['latitude'])}, `
-        + `${strValue(row['longitude'])}, ${userMap.get(row['creator'])}, `
+        + `${strValue(row['longitude'])}, ${beehive.userMap.get(row['creator'])}, `
         + `${strValue(utils.formatDate(row['date_created']))}, ${row['voided']}, `
         + `${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, `
         + `${strValue(row['void_reason'])}, ${strValue(row['county_district'])}, `
@@ -126,7 +126,7 @@ function prepareRelationshipTypeInsert(rows, nextId) {
     let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
     toBeinserted += `(${nextId}, ${strValue(row['a_is_to_b'])}, `
         + `${strValue(row['b_is_to_a'])}, ${row['preferred']}, ${row['weight']}, `
-        + `${strValue(row['description'])}, ${userMap.get(row['creator'])}, `
+        + `${strValue(row['description'])}, ${beehive.userMap.get(row['creator'])}, `
         + `${strValue(utils.formatDate(row['date_created']))}, `
         + `${uuid(row['uuid'])}, ${row['retired']}, ${retiredBy}, `
         + `${strValue(utils.formatDate(row['date_retired']))}, `
@@ -158,7 +158,7 @@ function preparePersonAttributeTypeInsert(rows, nextId) {
 
     toBeinserted += `(${nextId}, ${strValue(row['name'])}, `
         + `${strValue(row['description'])}, ${strValue(row['format'])}, `
-        + `${row['foreign_key']}, ${row['searchable']}, ${userMap.get(row['creator'])}, `
+        + `${row['foreign_key']}, ${row['searchable']}, ${beehive.userMap.get(row['creator'])}, `
         + `${strValue(utils.formatDate(row['date_created']))}, ${changedBy}, `
         + `${strValue(utils.formatDate(row['date_changed']))}, ${row['retired']}, `
         + `${retiredBy}, ${strValue(utils.formatDate(row['date_retired']))}, `
@@ -188,10 +188,10 @@ function preparePersonAttributeInsert(rows, nextId) {
       let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
       let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
-      toBeinserted += `(${nextId}, ${personMap.get(row['person_id'])}, `
+      toBeinserted += `(${nextId}, ${beehive.personMap.get(row['person_id'])}, `
           + `${strValue(row['value'])}, `
-          + `${personAttributeTypeMap.get(row['person_attribute_type_id'])}, `
-          + `${userMap.get(row['creator'])}, `
+          + `${beehive.personAttributeTypeMap.get(row['person_attribute_type_id'])}, `
+          + `${beehive.userMap.get(row['creator'])}, `
           + `${strValue(utils.formatDate(row['date_created']))}, `
           + `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}, `
           + `${row['voided']}, ${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, `
@@ -218,9 +218,9 @@ function prepareRelationshipInsert(rows, nextId) {
     let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
     let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
-    toBeinserted += `(${nextId}, ${personMap.get(row['person_a'])}, `
-        + `${relationshipTypeMap.get(row['relationship'])}, `
-        + `${personMap.get(row['person_b'])}, ${userMap.get(row['creator'])}, `
+    toBeinserted += `(${nextId}, ${beehive.personMap.get(row['person_a'])}, `
+        + `${beehive.relationshipTypeMap.get(row['relationship'])}, `
+        + `${beehive.personMap.get(row['person_b'])}, ${beehive.userMap.get(row['creator'])}, `
         + `${strValue(utils.formatDate(row['date_created']))}, `
         + `${row['voided']}, ${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, `
         + `${strValue(row['void_reason'])}, ${uuid(row['uuid'])}, `
@@ -249,11 +249,11 @@ function prepareUserInsert(rows, nextUserId) {
       beehive.userMap.set(row['user_id'], nextUserId);
       toBeinserted += `(${nextUserId}, '${row['system_id']}', ${strValue(row['username'])},`
           + `'${row['password']}', '${row['salt']}', ${strValue(row['secret_question'])}, `
-          + `${strValue(row['secret_answer'])}, ${userMap.get(row['creator'])}, `
+          + `${strValue(row['secret_answer'])}, ${beehive.userMap.get(row['creator'])}, `
           + `${strValue(utils.formatDate(row['date_created']))}, `
           + `${row['changed_by']}, `
           + `${strValue(utils.formatDate(row['date_changed']))}, `
-          + `${personMap.get(row['person_id'])}, ${row['retired']}, `
+          + `${beehive.personMap.get(row['person_id'])}, ${row['retired']}, `
           + `${row['retired_by']}, `
           + `${strValue(utils.formatDate(row['date_retired']))}, `
           + `${strValue(row['retire_reason'])}, ${uuid(row['uuid'])})`;
@@ -346,8 +346,9 @@ async function consolidateRolesAndPrivileges(srcConn, destConn) {
         });
       });
       if(rolesToAdd.length > 0) {
-        // console.log('Adding Roles: ', rolesToAdd);
         let insertStmt = prepareRoleInsert(rolesToAdd);
+        utils.logDebug('Role insert statement:', insertStmt);
+
         let [result] = await destConn.query(insertStmt);
         return result.affectedRows;
       }
@@ -365,8 +366,9 @@ async function consolidateRolesAndPrivileges(srcConn, destConn) {
       });
     });
     if(privToAdd.length > 0) {
-      // console.log('Adding Privileges: ', privToAdd);
       let insertStmt = preparePrivilegeInsert(privToAdd);
+      utils.logDebug('Privilege insert statement:', insertStmt);
+
       let [result] = await destConn.query(insertStmt);
       return result.affectedRows;
     }
@@ -480,7 +482,7 @@ async function getUsersCount(connection, condition) {
         let [results] = await connection.query(countQuery);
         return results[0]['users_count'];
     } catch (ex) {
-        console.error('Error while fetching users count', ex);
+        utils.logError('Error: while fetching users count', ex);
         throw ex;
     }
 }
@@ -495,7 +497,7 @@ async function getPersonsCount(connection, condition) {
         let [results, metadata] = await connection.query(personCountQuery);
         return results[0]['person_count'];
     } catch (ex) {
-        console.error('Error while fetching number of records in person table');
+        utils.logError('Error while fetching number of records in person table');
         throw ex;
     }
 }
@@ -530,7 +532,8 @@ async function createUserTree(connection, rootUserId, tree) {
         }
         return tempTree;
     } catch (ex) {
-        console.error('Error occured while building user tree', ex);
+        utils.logError('Error occured while building user tree', ex);
+        throw ex;
     }
 }
 
@@ -570,6 +573,7 @@ async function movePersons(srcConn, destConn, srcUserId) {
                               + ` order by date_created limit `;
         let temp = personsToMoveCount;
         let moved = 0;
+        let queryLogged = false;
         while (temp % BATCH_SIZE > 0) {
             let query = personFetchQuery;
             if (Math.floor(temp / BATCH_SIZE) > 0) {
@@ -582,18 +586,26 @@ async function movePersons(srcConn, destConn, srcUserId) {
                 temp = 0;
             }
             startingRecord += BATCH_SIZE;
-            // console.log('fetch query', query);
+
+            if(!queryLogged) {
+              utils.logDebug('Person fetch query:', query);
+            }
+
             let [r, f] = await srcConn.query(query);
             let [q, nextId] = preparePersonInsert(r, nextPersonId);
 
             // Insert person records into destination machine.
-            // console.log('Running query:', q);
+            if(!queryLogged) {
+              utils.logDebug('Person insert statement:', q);
+              queryLogged = true;
+            }
+
             await destConn.query(q);
             nextPersonId = nextId;
         }
         return moved;
     } catch (ex) {
-        console.error('An error occured while moving persons', ex);
+        utils.logError('An error occured while moving persons', ex);
         throw ex;
     }
 }
@@ -631,7 +643,7 @@ async function moveUsers(srcConn, destConn, creatorId) {
     }
     return moved;
   } catch (ex) {
-      console.error('An error occured while moving users', ex);
+      utils.logError('Error: while moving users', ex);
       throw ex;
   }
 }
@@ -658,124 +670,88 @@ async function traverseUserTree(tree, srcConn,destConn) {
     };
   }
   catch(ex) {
-    console.error('An error occured while traversing tree ', tree, ex);
+    utils.logError('Error: while traversing tree ', tree, ex);
     throw ex;
   }
 }
 
-async function mergeAlgorithm() {
-    if(config.generateNewUuids === null || config.generateNewUuids === undefined) {
-      throw new Error('Please specify how you want UUIDs to be handled by '
-        + 'specifying "generateNewUuids" config option as true/false in '
-        + 'config.json file');
+async function movePersonsUsersAndAssociatedTables(srcConn, destConn) {
+    utils.logInfo('Fetching users count from source & destination...');
+    const srcUsersCount = await getUsersCount(srcConn);
+    const initialDestUsersCount = await getUsersCount(destConn);
+
+    const srcPersonCount = await getPersonsCount(srcConn);
+    const initialDestPersonCount = await getPersonsCount(destConn);
+
+    utils.logInfo(`${logTime()}: Starting to move persons & users...`);
+    utils.logInfo(`Number of persons in source db: ${srcPersonCount}`);
+    utils.logInfo(`Number of users in source db: ${srcUsersCount}`);
+    utils.logInfo(`Initial numnber of persons in destination: ${initialDestPersonCount}`);
+    utils.logInfo(`Initial numnber of users in destination: ${initialDestUsersCount}`);
+
+    // Get source's admin user. (This is usually user with user_id=1, user0)
+    let srcAdminUserQuery = `SELECT * FROM users where user_id=1 or
+    system_id='admin' order by user_id`;
+    let [rows, fields] = await srcConn.query(srcAdminUserQuery);
+    
+    let srcAdminUserId = 1;
+    if (rows.every(row => {
+            return row['user_id'] ==! 1;
+        })) {
+        let r = rows.find(row => {
+            return row['system_id'] === 'admin';
+        });
+
+        srcAdminUserId = r['user_id'];
     }
-    let srcConn = null;
-    let destConn = null;
-    try {
-        srcConn = await connection(config.source);
-        destConn = await connection(config.destination);
 
-        console.log('Fetching users count from source & destination...');
-        const srcUsersCount = await getUsersCount(srcConn);
-        const initialDestUsersCount = await getUsersCount(destConn);
+    //Update the user map with user0's mappings.
+    beehive.userMap.set(srcAdminUserId, 1);
 
-        const srcPersonCount = await getPersonsCount(srcConn);
-        const initialDestPersonCount = await getPersonsCount(destConn);
+    // Create the user tree.
+    let tree = await createUserTree(srcConn, srcAdminUserId);
+    utils.logDebug('tree:', tree);
 
-        console.log(`${logTime()}: Starting to move persons & users...`);
-        console.log(`Number of persons in source db: ${srcPersonCount}`);
-        console.log(`Number of users in source db: ${srcUsersCount}`);
-        console.log(`Initial numnber of persons in destination: ${initialDestPersonCount}`);
-        console.log(`Initial numnber of users in destination: ${initialDestUsersCount}`);
+    // Traverse user tree performing the following for each user
+    let count = await traverseUserTree(tree, srcConn, destConn);
 
-        // Get source's admin user. (This is usually user with user_id=1, user0)
-        let srcAdminUserQuery = `SELECT * FROM users where user_id=1 or
-        system_id='admin' order by user_id`;
-        let [rows, fields] = await srcConn.query(srcAdminUserQuery);
-        // console.log(rows);
-        let srcAdminUserId = 1;
-        if (rows.every(row => {
-                return row['user_id'] ==! 1;
-            })) {
-            let r = rows.find(row => {
-                return row['system_id'] === 'admin';
-            });
+    const finalDestUserCount = await getUsersCount(destConn);
+    const finalDestPersonCount = await getPersonsCount(destConn);
 
-            srcAdminUserId = r['user_id'];
-        }
+    //Do some crude math verifications.
+    let expectedFinalDestUserCount = initialDestUsersCount + count.movedUsersCount;
+    let expectedFinalDestPersonCount = initialDestPersonCount + count.movedPersonsCount;
 
-        //Update the user map with user0's mappings.
-        beehive.userMap.set(srcAdminUserId, 1);
+    if(expectedFinalDestPersonCount === finalDestPersonCount &&
+                  expectedFinalDestUserCount === finalDestUserCount) {
+        utils.logOk(`Ok...${logTime()}: Hooraa! Persons & Users Moved successfully!`);
+        utils.logOk(`${count.movedPersonsCount} persons moved and new destination total is ${finalDestPersonCount}`);
+        utils.logOk(`${count.movedUsersCount} users moved and new destination total is ${finalDestUserCount}`);
+        utils.logInfo('Moving person names...');
 
-        // Create the user tree.
-        let tree = await createUserTree(srcConn, srcAdminUserId);
-        console.log('tree:', tree);
+        count = await movePersonNamesforMovedPersons(srcConn, destConn);
 
-        // STEP1.1 Traverse user tree performing the following for each user
-        let count = null;
-        try {
-          await destConn.query('START TRANSACTION');
-          count = await traverseUserTree(tree, srcConn, destConn);
-          await destConn.query('COMMIT');
-        }
-        catch(dbEx) {
-          await destConn.query('ROLLBACK');
-          throw dbEx;
-        }
+        utils.logInfo(`${count} names moved`);
+        utils.logInfo(`Consolidating roles & privileges`);
+        await consolidateRolesAndPrivileges(srcConn, destConn);
+        await updateMovedUsersRoles(srcConn, destConn);
+        utils.logOk('Ok...Roles & privileges consolidated successfully!');
 
-        const finalDestUserCount = await getUsersCount(destConn);
-        const finalDestPersonCount = await getPersonsCount(destConn);
-
-        //Do some crude math verifications.
-        let expectedFinalDestUserCount = initialDestUsersCount + count.movedUsersCount;
-        let expectedFinalDestPersonCount = initialDestPersonCount + count.movedPersonsCount;
-
-        if(expectedFinalDestPersonCount === finalDestPersonCount &&
-                      expectedFinalDestUserCount === finalDestUserCount) {
-            console.log(`${logTime()}: Hooraa! Persons & Users Moved successfully!`);
-            console.log(`${count.movedPersonsCount} persons moved and new destination total is ${finalDestPersonCount}`);
-            console.log(`${count.movedUsersCount} users moved and new destination total is ${finalDestUserCount}`);
-            console.log('Moving person names...');
-            // TODO: Establish number of names in dest in order to compare at the end.
-            try {
-              await destConn.query('START TRANSACTION');
-              count = await movePersonNamesforMovedPersons(srcConn, destConn);
-              await destConn.query('COMMIT');
-
-              console.log(`${count} names moved`);
-              console.log(`Consolidating roles & privileges`);
-              await destConn.query('START TRANSACTION');
-              await consolidateRolesAndPrivileges(srcConn, destConn);
-              await updateMovedUsersRoles(srcConn, destConn);
-              await destConn.query('COMMIT');
-              console.log('Consolidation successfully...');
-
-              console.log('Upate moved person relationships');
-              await destConn.query('START TRANSACTION');
-              await consolidateRelationshipTypes(srcConn, destConn);
-              await moveRelationships(srcConn, destConn);
-              await movePersonAddresses(srcConn, destConn);
-              await consolidatePersonAttributeTypes(srcConn, destConn);
-              await movePersonAttributes(srcConn, destConn);
-              await destConn.query('COMMIT');
-              console.log('Relationships moved successfully...');
-            }
-            catch(dbEx) {
-              await destConn.query('ROLLBACK');
-              throw dbEx;
-            }
-        }
-        else {
-          console.error('Expected & actual numbers do not match!!');
-          console.error('Too bad we are in deep sh*t!, We have a problem, terminating ...');
-          process.exit(1);
-        }
-    } catch (ex) {
-        console.error(ex);
-    } finally {
-        if (srcConn) srcConn.end();
-        if (destConn) destConn.end();
+        utils.logInfo('Upate moved person relationships');
+        await consolidateRelationshipTypes(srcConn, destConn);
+        await moveRelationships(srcConn, destConn);
+        await movePersonAddresses(srcConn, destConn);
+        await consolidatePersonAttributeTypes(srcConn, destConn);
+        await movePersonAttributes(srcConn, destConn);
+        utils.logOk('Ok...Relationships moved successfully!');
+    }
+    else {
+      utils.logError('Expected & actual persons and/or users final numbers do not match!!');
+      utils.logError('Too bad we are in deep sh*t!, We have a problem, terminating ...');
+      process.exit(1);
     }
 }
 
-mergeAlgorithm();
+module.exports = {
+  movePersonsUsersAndAssociatedTables: movePersonsUsersAndAssociatedTables,
+};

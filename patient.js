@@ -124,6 +124,7 @@ async function consolidatePatientIdentifierTypes(srcConn, destConn) {
         await utils.getNextAutoIncrementId(destConn, 'patient_identifier_type');
 
     let [sql] = prepareIdentifierTypeInsert(missingInDest, nextPatIdTypeId);
+    logDebug('patient_identifier_type query: ', query);
     let [result] = await destConn.query(sql);
   }
 }
