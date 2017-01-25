@@ -95,6 +95,7 @@ async function consolidateVisitTypes(srcConn, destConn) {
         await utils.getNextAutoIncrementId(destConn, 'visit_type');
 
     let [sql] = prepareVisitTypeInsert(missingInDest, nextVisitTypeId);
+    utils.logDebug('visit_type insert statement:\n', sql);
     let [result] = await destConn.query(sql);
   }
 }
@@ -103,3 +104,30 @@ async function moveVisits(srcConn, destConn) {
   return await moveAllTableRecords(srcConn, destConn, 'visit', 'visit_id',
                   prepareVisitInsert);
 }
+
+async function main(srcConn, destConn) {
+    utils.logInfo('Consolidating visit types...');
+    await consolidateVisitTypes(srcConn, destConn);
+    utils.logOk('Ok...');
+
+    let srcVisitCount = await utils.getCount(srcConn, 'visit');
+    let initialDestCount = await utils.getCount(destConn, 'visit');
+
+    utils.logInfo('Moving visits...');
+    let moved = await moveVisits(srcConn, destConn);
+
+    let finalDestCount = await utils.getCount(destConn, 'visit');
+    let expectedFinalCount = initialDestCount + srcVisitCount;
+
+    if(finalDestCount === expectedFinalCount) {
+        utils.logOk(`Ok... ${moved}`);
+    }
+    else {
+        let error = `Problem moving visits: the actual final count ` +
+            `(${expectedFinalCount}) is not equal to the expected value ` +
+            `(${finalDestCount})`;
+        throw new Error(error);
+    }
+}
+
+module.exports = main;

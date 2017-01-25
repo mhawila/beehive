@@ -162,8 +162,8 @@ async function main(srcConn, destConn) {
         utils.logOk(`Ok... ${movedAttributes} provider attributes moved.`);
     }
     else {
-        let error = `Problem moving providers: expected final count ` +
-            `(${expectedFinalCount}) is not equal to actual count ` +
+        let error = `Problem moving providers: the actual final count ` +
+            `(${expectedFinalCount}) is not equal to the expected value ` +
             `(${finalDestCount})`;
         throw new Error(error);
     }

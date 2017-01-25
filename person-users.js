@@ -673,7 +673,7 @@ async function traverseUserTree(tree, srcConn, destConn) {
     }
 }
 
-async function movePersonsUsersAndAssociatedTables(srcConn, destConn) {
+async function main(srcConn, destConn) {
     utils.logInfo('Fetching users count from source & destination...');
     const srcUsersCount = await getUsersCount(srcConn);
     const initialDestUsersCount = await getUsersCount(destConn);
@@ -752,4 +752,4 @@ async function movePersonsUsersAndAssociatedTables(srcConn, destConn) {
     }
 }
 
-module.exports = movePersonsUsersAndAssociatedTables;
+module.exports = main;
