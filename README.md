@@ -17,30 +17,55 @@ designated destination database will be a merger of the two initial instances.
 ## Tables
 Below is the list of tables whose records are moved.
 1. *person*
+
 2. *person_attribute_type*
+
 3. *person_attribute*
+
 4. *person_name*
+
 5. *person_address*
+
 6. *relationship_type*
+
 7. *relationship*
+
 8. *patient*
+
 9. *patient_identifier_type*
+
 10. *patient_identifier*
+
 11. *users*
+
 12. *role*
+
 13. *role_role*
+
 14. *privilege*
+
 15. *role_privilege*
+
 16. *user_role*
+
 17. *location*
+
 18. *provider*
+
 19. *provider_attribute_type*
+
 20. *provider_attribute*
+
 21. *visit*
+
 22. *visit_type*
+
 23. *encounter*
+
 24. *encounter_role*
+
 25. *encounter_provider*
+
 26. *obs*
 
 ## Requirements
@@ -48,6 +73,7 @@ Below is the list of tables whose records are moved.
 
 ## Running
 Clone the code from github.
+
 `$ git clone https://github.com/mhawila/beehive.git`
 
 Change into the project directory, and create a JSON configuration file called
@@ -82,4 +108,5 @@ Change into the project directory, and create a JSON configuration file called
 **Note:** Substitute the given values with appropriate values.
 
 Once the configuration file is in place, run the application with command:
+
 `$ node --harmony orchestrator.js`
