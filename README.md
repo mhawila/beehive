@@ -109,4 +109,7 @@ Change into the project directory, and create a JSON configuration file called
 
 Once the configuration file is in place, run the application with command:
 
-`$ node --harmony orchestrator.js`
+```shell
+$ npm install
+$ node --harmony orchestrator.js
+```

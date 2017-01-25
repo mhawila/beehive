@@ -21,7 +21,6 @@
   },
   "homepage": "https://github.com/mhawila/beehive#readme",
   "dependencies": {
-    "lodash": "^4.17.4",
     "mysql2": "^1.1.2",
     "uuid": "^3.0.1"
   }
