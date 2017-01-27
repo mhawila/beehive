@@ -16,8 +16,10 @@ const config = require('./config');
 
 
 async function orchestration() {
+    let persist = config.persist || false;
     let startTime = Date.now();
     let initialErrors = [];
+
     if (config.source.location === undefined) {
         initialErrors.push('Error: source.location not specified in config.json file');
     }
@@ -43,7 +45,7 @@ async function orchestration() {
         destConn = await connection(config.destination);
 
         utils.logInfo(logTime(), ': Preparing destination database...');
-        await prepare(destConn, config.source.location);
+        await prepare(destConn, config);
 
         utils.logInfo(logTime(), ': Starting data migration ...');
         destConn.query('START TRANSACTION');
@@ -68,7 +70,9 @@ async function orchestration() {
         //obs
         await obsMover(srcConn, destConn);
 
-        await insertSource(destConn,config.source.location);
+        if (!persist) {
+            await insertSource(destConn, config.source.location);
+        }
 
         destConn.query('COMMIT');
         utils.logOk(`Done...All Data from ${config.source.location} copied.`);

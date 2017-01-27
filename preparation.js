@@ -24,24 +24,48 @@
         global.beehive[mapName] = new Map();
     });
 
-    async function prepareForNewSource(connection, source) {
+    async function _sourceAlreadyExists(connection, source) {
+        let query = 'SELECT source FROM beehive_merge_source where source = ' +
+            `'${source}'`;
+        [result] = await connection.query(query);
+        if (result.length > 0) {
+            return true;
+        }
+        return false;
+    }
+
+    async function prepareForNewSource(connection, config) {
+        let source = config.source.location;
+        let persist = config.persist || false;
+
         let check = `SHOW TABLES LIKE 'beehive_merge_source'`;
         let [result] = await connection.query(check);
         if (result.length === 0) {
             //Not created yet.
-            await _createTables(connection);
+            await _createSourceTable(connection);
+            if (persist) {
+                await _createTables(connection);
+            }
             // await _insertSource(connection, source);
         } else {
             // TODO: If we decide to do transaction in chunks this section will be relevant
             // check if source already exists.
-            // let query = 'SELECT source FROM beehive_merge_source where source = ' +
-            //     `'${source}'`;
-            // [result] = await connection.query(query);
-            // if (result.length === 0) {
-            //     await _insertSource(connection, source);
-            // } else {
-            //     // TODO: Populate the maps.
-            // }
+            let sourceExists = await _sourceAlreadyExists(connection, source);
+            if (persist) {
+                if (!sourceExists) {
+                    // Initial run
+                    await _insertSource(connection, source);
+                } else {
+                    // Second or more run
+                    // TODO: Populate the maps from persisted tables
+                }
+            }
+            else {
+                if(sourceExists){
+                    let error = `Location ${source} already processed`;
+                    throw new Error(error);
+                }
+            }
         }
     }
 
@@ -62,11 +86,16 @@
         return r.affectedRows;
     }
 
-    async function _createTables(connection) {
+    async function _createSourceTable(connection) {
         let sourceTable = 'CREATE TABLE IF NOT EXISTS beehive_merge_source(' +
             'source VARCHAR(50) PRIMARY KEY' +
             ')';
 
+        utils.logDebug(sourceTable);
+        await connection.query(sourceTable);
+    }
+
+    async function _createTables(connection) {
         let progressTable = 'CREATE TABLE IF NOT EXISTS beehive_merge_progress(' +
             'id INT(11) AUTO_INCREMENT PRIMARY KEY,' +
             'source VARCHAR(50) NOT NULL,' +
@@ -76,7 +105,6 @@
             ')';
 
         let tables = [
-            sourceTable,
             progressTable
         ];
 
