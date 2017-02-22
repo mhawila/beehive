@@ -566,10 +566,14 @@ async function movePersons(srcConn, destConn, srcUserId) {
         let nextPersonId = await utils.getNextAutoIncrementId(destConn, 'person');
         let personsToMoveCount = await getPersonsCount(srcConn, 'creator=' + srcUserId);
 
+        // Get the person associated with daemon user
+        let daemonQuery = `SELECT person_id from users WHERE system_id = 'daemon'`;
+        let [daemonPerson] = await srcConn.query(daemonQuery);
+
         // Get all person created by srcUserId in SRC database
         let startingRecord = 0;
         let personFetchQuery = `SELECT * FROM person WHERE creator = ${srcUserId}` +
-            ` order by date_created limit `;
+            ` and person_id != ${daemonPerson[0]['person_id']} order by date_created limit `;
         let temp = personsToMoveCount;
         let moved = 0;
         let queryLogged = false;
