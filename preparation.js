@@ -1,5 +1,5 @@
 (function() {
-    global.beehive = {}; // will be exported
+    global.beehive = {};
     const utils = require('./utils');
     const stringValue = utils.stringValue;
 
@@ -24,6 +24,9 @@
         global.beehive[mapName] = new Map();
     });
 
+    //Add admin person_id mapping it to 1
+    global.beehive.personMap.set(1,1);
+    
     async function _sourceAlreadyExists(connection, source) {
         let query = 'SELECT source FROM beehive_merge_source where source = ' +
             `'${source}'`;

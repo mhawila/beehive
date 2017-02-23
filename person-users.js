@@ -72,11 +72,11 @@ function preparePersonNameInsert(rows, nextPersonNameId) {
 
     let toBeinserted = '';
     rows.forEach(row => {
-        if (toBeinserted.length > 1) {
-            toBeinserted += ',';
-        }
         let currentPersonId = beehive.personMap.get(row['person_id']);
         if (currentPersonId !== undefined) {
+            if (toBeinserted.length > 1) {
+                toBeinserted += ',';
+            }
             let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
             let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
@@ -109,31 +109,35 @@ function preparePersonAddressInsert(rows, nextId) {
 
     let toBeinserted = '';
     rows.forEach(row => {
-        if (toBeinserted.length > 1) {
-            toBeinserted += ',';
+        let currentPersonId = beehive.personMap.get(row['person_id']);
+        if (currentPersonId !== undefined) {
+            if (toBeinserted.length > 1) {
+                toBeinserted += ',';
+            }
+            let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
+            let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+
+            toBeinserted += `(${nextId}, ${currentPersonId}, ` +
+                `${row['preferred']}, ${strValue(row['address1'])}, ` +
+                `${strValue(row['address2'])}, ${strValue(row['city_village'])}, ` +
+                `${strValue(row['state_province'])}, ${strValue(row['postal_code'])}, ` +
+                `${strValue(row['country'])}, ${strValue(row['latitude'])}, ` +
+                `${strValue(row['longitude'])}, ${beehive.userMap.get(row['creator'])}, ` +
+                `${strValue(utils.formatDate(row['date_created']))}, ${row['voided']}, ` +
+                `${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, ` +
+                `${strValue(row['void_reason'])}, ${strValue(row['county_district'])}, ` +
+                `${strValue(row['address3'])}, ${strValue(row['address6'])}, ` +
+                `${strValue(row['address5'])}, ${strValue(row['address4'])}, ` +
+                `${uuid(row['uuid'])}, ${strValue(utils.formatDate(row['date_changed']))}, ` +
+                `${changedBy}, ${strValue(utils.formatDate(row['start_date']))}, ` +
+                `${strValue(utils.formatDate(row['end_date']))})`;
+
+            nextId++;
         }
-        let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
-        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
-
-        toBeinserted += `(${nextId}, ${beehive.personMap.get(row['person_id'])}, ` +
-            `${row['preferred']}, ${strValue(row['address1'])}, ` +
-            `${strValue(row['address2'])}, ${strValue(row['city_village'])}, ` +
-            `${strValue(row['state_province'])}, ${strValue(row['postal_code'])}, ` +
-            `${strValue(row['country'])}, ${strValue(row['latitude'])}, ` +
-            `${strValue(row['longitude'])}, ${beehive.userMap.get(row['creator'])}, ` +
-            `${strValue(utils.formatDate(row['date_created']))}, ${row['voided']}, ` +
-            `${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, ` +
-            `${strValue(row['void_reason'])}, ${strValue(row['county_district'])}, ` +
-            `${strValue(row['address3'])}, ${strValue(row['address6'])}, ` +
-            `${strValue(row['address5'])}, ${strValue(row['address4'])}, ` +
-            `${uuid(row['uuid'])}, ${strValue(utils.formatDate(row['date_changed']))}, ` +
-            `${changedBy}, ${strValue(utils.formatDate(row['start_date']))}, ` +
-            `${strValue(utils.formatDate(row['end_date']))})`;
-
-        nextId++;
     });
 
-    let insertStatement = insert + toBeinserted;
+    let insertStatement = null;
+    if (toBeinserted !== '') insertStatement = insert + toBeinserted;
     return [insertStatement, nextId];
 }
 
@@ -538,9 +542,8 @@ async function getPersonsCount(connection, condition) {
     if (condition) {
         personCountQuery += ' WHERE ' + condition;
     }
-    if(config.debug) {
-        utils.logDebug(`Person count query: ${personCountQuery}`);
-    }
+
+    utils.logDebug(`Person count query: ${personCountQuery}`);
     try {
         let [results, metadata] = await connection.query(personCountQuery);
         return results[0]['person_count'];
@@ -596,6 +599,7 @@ async function movePersonNamesforMovedPersons(srcConn, destConn) {
     }
 
     let moved = 0;
+    let queryLogged = false;
     while (Array.isArray(r) && r.length > 0) {
         let [insertStmt, nextId] = preparePersonNameInsert(r, nextPersonNameId);
         let [result, meta] = await destConn.query(insertStmt);
@@ -605,6 +609,11 @@ async function movePersonNamesforMovedPersons(srcConn, destConn) {
         startingRecord += BATCH_SIZE;
         dynamicQuery = fetchQuery + `${startingRecord}, ${BATCH_SIZE}`;
         [r, f] = await srcConn.query(dynamicQuery);
+
+        if(!queryLogged) {
+            utils.logDebug(`person_name insert statement: ${insertStmt}`);
+            queryLogged = true;
+        }
     }
     return moved;
 }

@@ -80,11 +80,11 @@ let moveAllTableRecords = async function(srcConn, destConn, tableName, orderColu
     while (temp % config.batchSize > 0) {
         let query = fetchQuery;
         if (Math.floor(temp / config.batchSize) > 0) {
-            moved += config.batchSize;
+            // moved += config.batchSize;
             query += start + ', ' + config.batchSize;
             temp -= config.batchSize;
         } else {
-            moved += temp;
+            // moved += temp;
             query += start + ', ' + temp;
             temp = 0;
         }
@@ -97,7 +97,11 @@ let moveAllTableRecords = async function(srcConn, destConn, tableName, orderColu
             queryLogged = true;
         }
 
-        await destConn.query(q);
+        if(q) {
+            [r] = await destConn.query(q);
+            moved += r.affectedRows;
+        }
+
         nextAutoIncr = nextId;
     }
     return moved;
