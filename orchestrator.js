@@ -19,6 +19,7 @@ async function orchestration() {
     let persist = config.persist || false;
     let startTime = Date.now();
     let initialErrors = [];
+    let dryRun = process.argv.some(arg => (arg === '--dry-run'));
 
     if (config.source.location === undefined) {
         initialErrors.push('Error: source.location not specified in config.json file');
@@ -44,8 +45,10 @@ async function orchestration() {
         srcConn = await connection(config.source);
         destConn = await connection(config.destination);
 
-        utils.logInfo(logTime(), ': Preparing destination database...');
-        await prepare(destConn, config);
+        if(!dryRun) {
+            utils.logInfo(logTime(), ': Preparing destination database...');
+            await prepare(destConn, config);
+        }
 
         utils.logInfo(logTime(), ': Starting data migration ...');
         destConn.query('START TRANSACTION');
@@ -74,8 +77,14 @@ async function orchestration() {
             await insertSource(destConn, config.source.location);
         }
 
-        destConn.query('COMMIT');
-        utils.logOk(`Done...All Data from ${config.source.location} copied.`);
+        if(dryRun) {
+            destConn.query('ROLLBACK');
+            utils.logOk(`Done...No changes have been made!`)
+        }
+        else {
+            destConn.query('COMMIT');
+            utils.logOk(`Done...All Data from ${config.source.location} copied.`);
+        }
     } catch (ex) {
         destConn.query('ROLLBACK');
         utils.logError(ex);

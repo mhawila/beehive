@@ -12,7 +12,7 @@ let beehive = global.beehive;
 function preparePersonInsert(rows, nextPersonId) {
     let insert = 'INSERT INTO person(person_id, gender, birthdate,' +
         'birthdate_estimated, dead, death_date, cause_of_death, creator,' +
-        'date_created, changed_by, date_changed, voided, voided_by,' +
+        'date_created, date_changed, voided, ' +
         'date_voided, void_reason, uuid) VALUES ';
 
     let toBeinserted = '';
@@ -27,8 +27,8 @@ function preparePersonInsert(rows, nextPersonId) {
             `${strValue(utils.formatDate(row['deathdate']))}, ` +
             `${strValue(row['cause_of_death'])}, ${beehive.userMap.get(row['creator'])}, ` +
             `${strValue(utils.formatDate(row['date_created']))},` +
-            `${row['changed_by']}, ${strValue(utils.formatDate(row['date_changed']))},` +
-            `${row['voided']}, ${row['voided_by']},` +
+            `${strValue(utils.formatDate(row['date_changed']))},` +
+            `${row['voided']}, ` +
             `${strValue(utils.formatDate(row['date_voided']))},` +
             `${strValue(row['void_reason'])}, ${uuid(row['uuid'])})`;
         nextPersonId++;
@@ -37,6 +37,30 @@ function preparePersonInsert(rows, nextPersonId) {
     let query = insert + toBeinserted;
 
     return [query, nextPersonId];
+}
+
+function preparePersonAuditInfoUpdateQuery(rows) {
+    let update = 'INSERT INTO person(person_id, changed_by, voided_by) VALUES '
+    let lastPart = ' ON DUPLICATE KEY UPDATE changed_by = VALUES(changed_by), ' +
+                   'voided_by = VALUES(voided_by)';
+
+    let values = '';
+    let toUpdate = 0;
+    rows.forEach(row => {
+        let destPersonId = beehive.personMap.get(row['person_id']);
+        let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
+        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+        if(destPersonId) {
+            toUpdate++;
+            if(values.length > 1) {
+                values += ',';
+            }
+            values += `(${destPersonId}, ${changedBy}, ${voidedBy})`;
+        }
+    });
+
+    if(values === '') return [undefined, 0];
+    return [update + values + lastPart, toUpdate];
 }
 
 function preparePersonNameInsert(rows, nextPersonNameId) {
@@ -238,7 +262,7 @@ function prepareRelationshipInsert(rows, nextId) {
 function prepareUserInsert(rows, nextUserId) {
     let insert = 'INSERT INTO users(user_id, system_id, username, password, salt,' +
         'secret_question, secret_answer, creator, date_created, ' +
-        'changed_by, date_changed, person_id, retired, retired_by, ' +
+        'date_changed, person_id, retired, ' +
         'date_retired, retire_reason, uuid) VALUES ';
 
     let toBeinserted = '';
@@ -251,10 +275,8 @@ function prepareUserInsert(rows, nextUserId) {
             `'${row['password']}', '${row['salt']}', ${strValue(row['secret_question'])}, ` +
             `${strValue(row['secret_answer'])}, ${beehive.userMap.get(row['creator'])}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ` +
-            `${row['changed_by']}, ` +
             `${strValue(utils.formatDate(row['date_changed']))}, ` +
             `${beehive.personMap.get(row['person_id'])}, ${row['retired']}, ` +
-            `${row['retired_by']}, ` +
             `${strValue(utils.formatDate(row['date_retired']))}, ` +
             `${strValue(row['retire_reason'])}, ${uuid(row['uuid'])})`;
 
@@ -264,6 +286,30 @@ function prepareUserInsert(rows, nextUserId) {
     let query = insert + toBeinserted;
 
     return [query, nextUserId];
+}
+
+function prepareUserAuditInfoUpdateQuery(rows) {
+    let update = 'INSERT INTO users(user_id, changed_by, retired_by) VALUES '
+    let lastPart = ' ON DUPLICATE KEY UPDATE changed_by = VALUES(changed_by), ' +
+                   'retired_by = VALUES(retired_by)';
+
+    let values = '';
+    let toUpdate = 0;
+    rows.forEach(row => {
+        let destUserId = beehive.userMap.get(row['user_id']);
+        let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
+        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+        if(destUserId) {
+            toUpdate++;
+            if(values.length > 1) {
+                values += ',';
+            }
+            values += `(${destUserId}, ${changedBy}, ${retiredBy})`;
+        }
+    });
+
+    if(values === '') return [undefined, 0];
+    return [update + values + lastPart, toUpdate];
 }
 
 function prepareRoleInsert(rows) {
@@ -492,6 +538,9 @@ async function getPersonsCount(connection, condition) {
     if (condition) {
         personCountQuery += ' WHERE ' + condition;
     }
+    if(config.debug) {
+        utils.logDebug(`Person count query: ${personCountQuery}`);
+    }
     try {
         let [results, metadata] = await connection.query(personCountQuery);
         return results[0]['person_count'];
@@ -560,20 +609,27 @@ async function movePersonNamesforMovedPersons(srcConn, destConn) {
     return moved;
 }
 
+async function personIdsToexclude(connection) {
+    // Get the person associated with daemon user
+    let exclude = `SELECT person_id from users WHERE system_id IN ('daemon', 'admin')`;
+    let [ids] = await connection.query(exclude);
+    return ids.map(id => id['person_id']);
+}
+
 async function movePersons(srcConn, destConn, srcUserId) {
     try {
         // Get next person id in the destination
         let nextPersonId = await utils.getNextAutoIncrementId(destConn, 'person');
-        let personsToMoveCount = await getPersonsCount(srcConn, 'creator=' + srcUserId);
+        let excluded = await personIdsToexclude(srcConn);
+        let toExclude = '(' + excluded.join(',') + ')';
 
-        // Get the person associated with daemon user
-        let daemonQuery = `SELECT person_id from users WHERE system_id = 'daemon'`;
-        let [daemonPerson] = await srcConn.query(daemonQuery);
+        let countCondition = `creator = ${srcUserId} AND person_id NOT IN ${toExclude}`;
+        let personsToMoveCount = await getPersonsCount(srcConn, countCondition);
 
         // Get all person created by srcUserId in SRC database
         let startingRecord = 0;
         let personFetchQuery = `SELECT * FROM person WHERE creator = ${srcUserId}` +
-            ` and person_id != ${daemonPerson[0]['person_id']} order by date_created limit `;
+            ` and person_id NOT IN ${toExclude} order by date_created limit `;
         let temp = personsToMoveCount;
         let moved = 0;
         let queryLogged = false;
@@ -677,12 +733,100 @@ async function traverseUserTree(tree, srcConn, destConn) {
     }
 }
 
+async function updateAuditInfoForPersons(srcConn, destConn) {
+    //At this point the beehive.personMap is already populated
+    let countQuery = `SELECT count(*) as 'count' FROM person WHERE changed_by IS NOT ` +
+                `NULL OR voided_by IS NOT NULL`;
+
+    let queryParts = 'SELECT person_id, changed_by, voided_by FROM person ' +
+                     'WHERE changed_by IS NOT NULL OR voided_by IS NOT NULL LIMIT ';
+
+    let [count] = await srcConn.query(countQuery);
+    let temp = count[0]['count'];
+    let startingRecord = 0;
+    let updated = 0;
+    let queryLogged = false;
+    while( temp % BATCH_SIZE) {
+        //Do in batches
+        let query = queryParts;
+        if (Math.floor(temp / BATCH_SIZE) > 0) {
+            query += startingRecord + ', ' + BATCH_SIZE;
+            temp -= BATCH_SIZE;
+        } else {
+            query += startingRecord + ', ' + temp;
+            temp = 0;
+        }
+        startingRecord += BATCH_SIZE;
+
+        let [records] = await srcConn.query(query);
+        let [updateStmt, toUpdate] = preparePersonAuditInfoUpdateQuery(records);
+
+        // Update audit info in destination
+        if(toUpdate > 0) {
+            if (!queryLogged) {
+                utils.logDebug('Person Audit Info fetch query:', query);
+                utils.logDebug('Person Audit Info Update statement:', updateStmt);
+                queryLogged = true;
+            }
+            updated += toUpdate;
+            await destConn.query(updateStmt);
+        }
+    }
+    return updated;
+}
+
+async function updateAuditInfoForUsers(srcConn, destConn) {
+    //At this point the beehive.personMap is already populated
+    let countQuery = `SELECT count(*) as 'count' FROM users ` +
+                `WHERE (changed_by IS NOT NULL OR retired_by IS NOT NULL) ` +
+                `AND system_id NOT IN ('admin', 'daemon')`;
+
+    let queryParts = 'SELECT user_id, changed_by, retired_by FROM users ' +
+                'WHERE (changed_by IS NOT NULL OR retired_by IS NOT NULL) ' +
+                `AND system_id NOT IN ('admin', 'daemon') LIMIT `;
+
+    let [count] = await srcConn.query(countQuery);
+    let temp = count[0]['count'];
+    let startingRecord = 0;
+    let updated = 0;
+    let queryLogged = false;
+    while( temp % BATCH_SIZE) {
+        //Do in batches
+        let query = queryParts;
+        if (Math.floor(temp / BATCH_SIZE) > 0) {
+            query += startingRecord + ', ' + BATCH_SIZE;
+            temp -= BATCH_SIZE;
+        } else {
+            query += startingRecord + ', ' + temp;
+            temp = 0;
+        }
+        startingRecord += BATCH_SIZE;
+
+        let [records] = await srcConn.query(query);
+        let [updateStmt, toUpdate] = prepareUserAuditInfoUpdateQuery(records);
+
+        // Update audit info in destination
+        if(toUpdate > 0) {
+            if (!queryLogged) {
+                utils.logDebug('User Audit Info fetch query:', query);
+                utils.logDebug('User Audit Info Update statement:', updateStmt);
+                queryLogged = true;
+            }
+            updated += toUpdate;
+            await destConn.query(updateStmt);
+        }
+    }
+    return updated;
+}
+
 async function main(srcConn, destConn) {
     utils.logInfo('Fetching users count from source & destination...');
     const srcUsersCount = await getUsersCount(srcConn);
     const initialDestUsersCount = await getUsersCount(destConn);
 
-    const srcPersonCount = await getPersonsCount(srcConn);
+    let excluded = await personIdsToexclude(srcConn);
+    let countCondition = 'person_id NOT IN (' + excluded.join(',') + ')';
+    const srcPersonCount = await getPersonsCount(srcConn, countCondition);
     const initialDestPersonCount = await getPersonsCount(destConn);
 
     utils.logInfo(`${logTime()}: Starting to move persons & users...`);
@@ -730,6 +874,14 @@ async function main(srcConn, destConn) {
         utils.logOk(`${count.movedPersonsCount} persons moved and new destination total is ${finalDestPersonCount}`);
         utils.logOk(`${count.movedUsersCount} users moved and new destination total is ${finalDestUserCount}`);
 
+        utils.logInfo('Updating Auditing Information for person table...');
+        count = await updateAuditInfoForPersons(srcConn, destConn);
+        utils.logInfo(`Ok...${count} records updated`);
+
+        utils.logInfo('Updating Auditing information for users table...');
+        count = await updateAuditInfoForUsers(srcConn, destConn);
+        utils.logInfo(`Ok...${count} records updated`);
+
         utils.logInfo('Moving person names...');
         count = await movePersonNamesforMovedPersons(srcConn, destConn);
         utils.logOk(`Ok...${count} names moved`);
@@ -751,7 +903,10 @@ async function main(srcConn, destConn) {
         utils.logOk('Ok...')
     } else {
         utils.logError('Expected & actual persons and/or users final numbers do not match!!');
-        utils.logError('Too bad we are in deep sh*t!, We have a problem, terminating ...');
+        utils.logError(`Expected final person count in destination: ${expectedFinalDestPersonCount}`);
+        utils.logError(`Actual final person count in destination: ${finalDestPersonCount}`);
+        utils.logError(`Expected final users count in destination: ${expectedFinalDestUserCount}`);
+        utils.logError(`Actual final users count in destination: ${finalDestUserCount}`);
         throw new Error();
     }
 }
