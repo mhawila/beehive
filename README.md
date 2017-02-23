@@ -107,9 +107,17 @@ Change into the project directory, and create a JSON configuration file called
 
 **Note:** Substitute the given values with appropriate values.
 
-Once the configuration file is in place, run the application with command:
+Once the configuration file is in place, Install the required dependencies:
 
 ```shell
 $ npm install
+```
+
+Run the application
+```shell
 $ node --harmony orchestrator.js
+```
+Running without committing changes to the database (Dry running)
+```shell
+$ node --harmony orchestrator.js --dry-run
 ```
