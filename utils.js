@@ -93,7 +93,7 @@ let moveAllTableRecords = async function(srcConn, destConn, tableName, orderColu
         let [q, nextId] = insertQueryPrepareFunction.call(null, r, nextAutoIncr);
 
         if (!queryLogged) {
-            logDebug(`${tableName} insert statement:\n`, q);
+            logDebug(`${tableName} insert statement:\n`, shortenInsertStatement(q));
             queryLogged = true;
         }
 
@@ -129,6 +129,17 @@ let logInfo = function(...args) {
     console.log.apply(null, args);
 }
 
+let shortenInsertStatement = function(statement) {
+    let charcount = 700;
+    if(statement === undefined || statement === null) statement;
+    let valuesIndex = statement.indexOf('VALUES');
+    if(valuesIndex == -1)return statement
+    if(statement.substring(valuesIndex).length <= charcount) return statement;
+
+    let lastParenth = statement.lastIndexOf(')', valuesIndex + charcount);
+    return statement.substring(0, lastParenth + 1) + '...';
+}
+
 module.exports = {
     getNextAutoIncrementId: getNextAutoIncrementId,
     getCount: getCount,
@@ -141,4 +152,5 @@ module.exports = {
     logDebug: logDebug,
     logInfo: logInfo,
     uuid: uuid,
+    shortenInsert: shortenInsertStatement
 };

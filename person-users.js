@@ -611,7 +611,8 @@ async function movePersonNamesforMovedPersons(srcConn, destConn) {
         [r, f] = await srcConn.query(dynamicQuery);
 
         if(!queryLogged) {
-            utils.logDebug(`person_name insert statement: ${insertStmt}`);
+            utils.logDebug(`person_name insert statement:`)
+            utils.logDebug(utils.shortenInsert(insertStmt));
             queryLogged = true;
         }
     }
@@ -626,6 +627,7 @@ async function personIdsToexclude(connection) {
 }
 
 async function movePersons(srcConn, destConn, srcUserId) {
+    let [q, nextId] = [undefined, -1];
     try {
         // Get next person id in the destination
         let nextPersonId = await utils.getNextAutoIncrementId(destConn, 'person');
@@ -660,11 +662,11 @@ async function movePersons(srcConn, destConn, srcUserId) {
             }
 
             let [r, f] = await srcConn.query(query);
-            let [q, nextId] = preparePersonInsert(r, nextPersonId);
+            [q, nextId] = preparePersonInsert(r, nextPersonId);
 
             // Insert person records into destination machine.
             if (!queryLogged) {
-                utils.logDebug('Person insert statement:', q);
+                utils.logDebug('Person insert statement:\n',utils.shortenInsert(q));
                 queryLogged = true;
             }
 
@@ -673,12 +675,17 @@ async function movePersons(srcConn, destConn, srcUserId) {
         }
         return moved;
     } catch (ex) {
-        utils.logError('An error occured while moving persons', ex);
+        utils.logError('An error occured while moving persons...');
+        if(q) {
+            utils.logError('Insert statement during the error:');
+            utils.logError(q);
+        }
         throw ex;
     }
 }
 
 async function moveUsers(srcConn, destConn, creatorId) {
+    let [insertStmt, nextId] = [undefined, -1];
     try {
         let condition = `creator=${creatorId} and system_id not in ('daemon','admin')`;
         let nextUserId = await utils.getNextAutoIncrementId(destConn, 'users');
@@ -690,6 +697,7 @@ async function moveUsers(srcConn, destConn, creatorId) {
 
         let temp = usersToMoveCount;
         let moved = 0
+        let logged = false;
         while (temp % BATCH_SIZE > 0) {
             let query = userFetchQuery;
             if (Math.floor(temp / BATCH_SIZE) > 0) {
@@ -703,15 +711,25 @@ async function moveUsers(srcConn, destConn, creatorId) {
             }
             startingRecord += BATCH_SIZE;
             let [records, fields] = await srcConn.query(query);
-            let [insertStmt, nextId] = prepareUserInsert(records, nextUserId);
+            [insertStmt, nextId] = prepareUserInsert(records, nextUserId);
 
             // Insert data into destination
             await destConn.query(insertStmt);
+
+            if(!logged) {
+                utils.logDebug('User Insert Statement:');
+                utils.logDebug(utils.shortenInsert(insertStmt));
+                logged = true;
+            }
             nextUserId = nextId;
         }
         return moved;
     } catch (ex) {
-        utils.logError('Error: while moving users', ex);
+        utils.logError('Error while moving users...');
+        if(insertStmt) {
+            utils.logError('Insert Statement during the error:');
+            utils.logError(insertStmt);
+        }
         throw ex;
     }
 }
@@ -737,7 +755,7 @@ async function traverseUserTree(tree, srcConn, destConn) {
             movedUsersCount: movedUsers
         };
     } catch (ex) {
-        utils.logError('Error: while traversing tree ', tree, ex);
+        utils.logError('Error: while traversing tree ', JSON.Stringify(tree,null,2));
         throw ex;
     }
 }
@@ -774,7 +792,8 @@ async function updateAuditInfoForPersons(srcConn, destConn) {
         if(toUpdate > 0) {
             if (!queryLogged) {
                 utils.logDebug('Person Audit Info fetch query:', query);
-                utils.logDebug('Person Audit Info Update statement:', updateStmt);
+                utils.logDebug('Person Audit Info Update statement:');
+                utils.logDebug(utils.shortenInsert(updateStmt));
                 queryLogged = true;
             }
             updated += toUpdate;
@@ -818,7 +837,8 @@ async function updateAuditInfoForUsers(srcConn, destConn) {
         if(toUpdate > 0) {
             if (!queryLogged) {
                 utils.logDebug('User Audit Info fetch query:', query);
-                utils.logDebug('User Audit Info Update statement:', updateStmt);
+                utils.logDebug('User Audit Info Update statement:');
+                utils.logDebug(shortenInsert(updateStmt))
                 queryLogged = true;
             }
             updated += toUpdate;
@@ -863,6 +883,9 @@ async function main(srcConn, destConn) {
     //Update the user map with user0's mappings.
     beehive.userMap.set(srcAdminUserId, 1);
 
+    //Set personMap admin person mapping
+    beehive.personMap.set(1,1);
+
     // Create the user tree.
     let tree = await createUserTree(srcConn, srcAdminUserId);
     utils.logDebug('tree:', tree);
@@ -880,8 +903,8 @@ async function main(srcConn, destConn) {
     if (expectedFinalDestPersonCount === finalDestPersonCount &&
         expectedFinalDestUserCount === finalDestUserCount) {
         utils.logOk(`Ok...${logTime()}: Hooraa! Persons & Users Moved successfully!`);
-        utils.logOk(`${count.movedPersonsCount} persons moved and new destination total is ${finalDestPersonCount}`);
-        utils.logOk(`${count.movedUsersCount} users moved and new destination total is ${finalDestUserCount}`);
+        utils.logOk(`${count.movedPersonsCount} persons moved. Destination's new total is ${finalDestPersonCount}`);
+        utils.logOk(`${count.movedUsersCount} users moved. Destination's new total is ${finalDestUserCount}`);
 
         utils.logInfo('Updating Auditing Information for person table...');
         count = await updateAuditInfoForPersons(srcConn, destConn);

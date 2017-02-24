@@ -79,7 +79,7 @@ async function orchestration() {
 
         if(dryRun) {
             destConn.query('ROLLBACK');
-            utils.logOk(`Done...No changes have been made!`)
+            utils.logOk(`Done...No database changes have been made!`)
         }
         else {
             destConn.query('COMMIT');
