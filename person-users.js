@@ -9,6 +9,8 @@ const config = require('./config');
 const BATCH_SIZE = config.batchSize || 200;
 let beehive = global.beehive;
 
+const movedLaterPersonsMap = new Map();
+
 function preparePersonInsert(rows, nextPersonId) {
     let insert = 'INSERT INTO person(person_id, gender, birthdate,' +
         'birthdate_estimated, dead, death_date, cause_of_death, creator,' +
@@ -275,12 +277,20 @@ function prepareUserInsert(rows, nextUserId) {
             toBeinserted += ',';
         }
         beehive.userMap.set(row['user_id'], nextUserId);
+
+        //Some users may be associated with persons that are not moved yet.
+        let personId = beehive.personMap.get(row['person_id']);
+        if(personId === undefined) {
+            //This person is not yet moved.
+            personId = 1;       // Place holder (to be updated later)
+            movedLaterPersonsMap.set(nextUserId, row['person_id']);
+        }
         toBeinserted += `(${nextUserId}, '${row['system_id']}', ${strValue(row['username'])},` +
             `'${row['password']}', '${row['salt']}', ${strValue(row['secret_question'])}, ` +
             `${strValue(row['secret_answer'])}, ${beehive.userMap.get(row['creator'])}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ` +
             `${strValue(utils.formatDate(row['date_changed']))}, ` +
-            `${beehive.personMap.get(row['person_id'])}, ${row['retired']}, ` +
+            `${personId}, ${row['retired']}, ` +
             `${strValue(utils.formatDate(row['date_retired']))}, ` +
             `${strValue(row['retire_reason'])}, ${uuid(row['uuid'])})`;
 
@@ -760,6 +770,25 @@ async function traverseUserTree(tree, srcConn, destConn) {
     }
 }
 
+async function updateUsersPersonIds(connection, idMap) {
+    if(idMap.size === 0) return;
+
+    let update = 'INSERT INTO users(user_id, person_id) VALUES '
+    let lastPart = ' ON DUPLICATE KEY UPDATE person_id = VALUES(person_id)';
+
+    let values = '';
+    idMap.forEach((personId, userId) => {
+        if(values.length > 1) {
+            values += ',';
+        }
+        values += `(${userId}, ${beehive.personMap.get(personId)})`;
+    });
+
+    let statement = update + values + lastPart;
+    let [r] = await connection.query(statement);
+    return r.affectedRows;
+}
+
 async function updateAuditInfoForPersons(srcConn, destConn) {
     //At this point the beehive.personMap is already populated
     let countQuery = `SELECT count(*) as 'count' FROM person WHERE changed_by IS NOT ` +
@@ -892,6 +921,10 @@ async function main(srcConn, destConn) {
 
     // Traverse user tree performing the following for each user
     let count = await traverseUserTree(tree, srcConn, destConn);
+
+    // Update users person ids for those users whose persons were not created by their
+    // creators.
+    await updateUsersPersonIds(destConn, movedLaterPersonsMap);
 
     const finalDestUserCount = await getUsersCount(destConn);
     const finalDestPersonCount = await getPersonsCount(destConn);
