@@ -755,7 +755,7 @@ async function traverseUserTree(tree, srcConn, destConn) {
             movedUsersCount: movedUsers
         };
     } catch (ex) {
-        utils.logError('Error: while traversing tree ', JSON.Stringify(tree,null,2));
+        utils.logError('Error: while traversing tree ', JSON.stringify(tree,null,2));
         throw ex;
     }
 }
