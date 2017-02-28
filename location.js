@@ -38,7 +38,7 @@ function prepareLocationInsert(rows, nextId) {
             `${strValue(row['address4'])}, ${row['retired']}, ${retiredBy}, ` +
             `${strValue(utils.formatDate(row['date_retired']))}, ` +
             `${strValue(row['retire_reason'])}, ${parentLocation}, ` +
-            `${_uuid(row['uuid'])})`;
+            `${utils.uuid(row['uuid'])})`;
 
         nextId++;
     });
