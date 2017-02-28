@@ -867,7 +867,7 @@ async function updateAuditInfoForUsers(srcConn, destConn) {
             if (!queryLogged) {
                 utils.logDebug('User Audit Info fetch query:', query);
                 utils.logDebug('User Audit Info Update statement:');
-                utils.logDebug(shortenInsert(updateStmt))
+                utils.logDebug(utils.shortenInsert(updateStmt))
                 queryLogged = true;
             }
             updated += toUpdate;
