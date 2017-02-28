@@ -51,29 +51,40 @@ async function consolidateLocations(srcConn, destConn) {
     let query = 'SELECT * FROM location order by date_created';
     let [srcLocs] = await srcConn.query(query);
     let [destLocs] = await destConn.query(query);
+    let [sql] = [null];
 
-    let missingInDest = [];
-    srcLocs.forEach(srcLoc => {
-        let match = destLocs.find(destLoc => {
-            return srcLoc['name'] === destLoc['name'];
+    try {
+        let missingInDest = [];
+        srcLocs.forEach(srcLoc => {
+            let match = destLocs.find(destLoc => {
+                return srcLoc['name'] === destLoc['name'];
+            });
+
+            if (match !== undefined && match !== null) {
+                beehive.locationMap.set(srcLoc['location_id'], match['location_id']);
+            } else {
+                missingInDest.push(srcLoc);
+            }
         });
 
-        if (match !== undefined && match !== null) {
-            beehive.locationMap.set(srcLoc['location_id'], match['location_id']);
-        } else {
-            missingInDest.push(srcLoc);
+        if (missingInDest.length > 0) {
+            let nextLocationId = await utils.getNextAutoIncrementId(destConn, 'location');
+
+            [sql] = prepareLocationInsert(missingInDest, nextLocationId);
+            utils.logDebug('Location insert statement:\n', utils.shortenInsert(sql));
+            let [result] = await destConn.query(sql);
+            return result.affectedRows;
         }
-    });
-
-    if (missingInDest.length > 0) {
-        let nextLocationId = await utils.getNextAutoIncrementId(destConn, 'location');
-
-        let [sql] = prepareLocationInsert(missingInDest, nextLocationId);
-        utils.logDebug('Location insert statement:\n', sql);
-        let [result] = await destConn.query(sql);
-        return result.affectedRows;
+        return 0;
     }
-    return 0;
+    catch(ex) {
+        logError('Error while consolidating locations');
+        if(sql) {
+            logError('Statement during error:');
+            logError(sql);
+        }
+        throw ex;
+    }
 }
 
 module.exports = consolidateLocations;
