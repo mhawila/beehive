@@ -443,14 +443,14 @@ async function consolidateRolesAndPrivileges(srcConn, destConn) {
     let [rps] = await srcConn.query('SELECT * FROM role_privilege');
     if (rps.length > 0) {
         let stmt = prepareRolePrivilegeInsert(rps);
-        let [result] = await destConn.query(stmt);
+        await destConn.query(stmt);
     }
 
     //Do the same sh*t for role_role
     let [rrs] = await srcConn.query('SELECT * FROM role_role');
     if (rrs.length > 0) {
-        stmt = prepareRoleRoleInsert(rrs);
-        [result] = await destConn.query(stmt);
+        let stmt = prepareRoleRoleInsert(rrs);
+        await destConn.query(stmt);
     }
 }
 
@@ -475,7 +475,7 @@ async function consolidatePersonAttributeTypes(srcConn, destConn) {
         let nextId = await utils.getNextAutoIncrementId(destConn, 'person_attribute_type');
 
         let [stmt] = preparePersonAttributeTypeInsert(toAdd, nextId);
-        let [result] = await destConn.query(stmt);
+        await destConn.query(stmt);
     }
 }
 
@@ -502,7 +502,7 @@ async function consolidateRelationshipTypes(srcConn, destConn) {
             await utils.getNextAutoIncrementId(destConn, 'relationship_type');
 
         let [stmt] = prepareRelationshipTypeInsert(toAdd, nextRelationshipTypeId);
-        let [result] = await destConn.query(stmt);
+        await destConn.query(stmt);
     }
 }
 
