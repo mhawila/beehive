@@ -60,7 +60,7 @@ async function updateParentForLocations(connection, idMap) {
         let lastPart = ' ON DUPLICATE KEY UPDATE parent_location = VALUES(parent_location)';
 
         let values = '';
-        idMap.forEach((locationId, srcParentId) => {
+        idMap.forEach((srcParentId, locationId) => {
             if(values.length > 1) {
                 values += ',';
             }
