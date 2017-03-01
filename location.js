@@ -61,6 +61,9 @@ async function updateParentForLocations(connection, idMap) {
 
         let values = '';
         idMap.forEach((locationId, srcParentId) => {
+            if(values.length > 1) {
+                values += ',';
+            }
             values += `(${locationId}, ${beehive.locationMap.get(srcParentId)})`;
         });
 
@@ -99,7 +102,7 @@ async function consolidateLocations(srcConn, destConn) {
             let [result] = await destConn.query(sql);
 
             await updateParentForLocations(destConn, notYetUpdatedWithParentLocations);
-            
+
             return result.affectedRows;
         }
         return 0;
