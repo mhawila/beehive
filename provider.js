@@ -153,7 +153,7 @@ async function main(srcConn, destConn) {
     let moved = await moveProviders(srcConn, destConn);
 
     let finalDestCount = await utils.getCount(destConn, 'provider');
-    let expectedFinalCount = initialDestCount + srcProvCount;
+    let expectedFinalCount = initialDestCount + moved;
     if(expectedFinalCount === finalDestCount) {
         utils.logOk(`Ok... ${moved} providers moved.`);
 
@@ -167,8 +167,8 @@ async function main(srcConn, destConn) {
     }
     else {
         let error = `Problem moving providers: the actual final count ` +
-            `(${expectedFinalCount}) is not equal to the expected value ` +
-            `(${finalDestCount})`;
+            `of ${finalDestCount} is not equal to the expected value ` +
+            `of ${expectedFinalCount}`;
         throw new Error(error);
     }
 }
