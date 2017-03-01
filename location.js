@@ -7,6 +7,7 @@ const getCount = utils.getCount;
 const moveAllTableRecords = utils.moveAllTableRecords;
 
 let beehive = global.beehive;
+let notYetUpdatedWithParentLocations = new Map();
 
 function prepareLocationInsert(rows, nextId) {
     let insert = 'INSERT INTO location(location_id, name, description, address1, ' +
@@ -22,8 +23,14 @@ function prepareLocationInsert(rows, nextId) {
         }
         let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
         let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
-        let parentLocation = row['parent_location'] === null ? null : beehive.locationMap.get(row['parent_location']);
 
+        let parentLocation = beehive.locationMap.get(row['parent_location']);
+        if(parentLocation === undefined) {
+            parentLocation = null;
+            if(row['parent_location'] !== null) {
+                notYetUpdatedWithParentLocations.set(nextId, row['parent_location']);
+            }
+        }
         beehive.locationMap.set(row['location_id'], nextId);
 
         toBeinserted += `(${nextId}, ${strValue(row['name'])}, ` +
@@ -45,6 +52,23 @@ function prepareLocationInsert(rows, nextId) {
 
     let insertStatement = insert + toBeinserted;
     return [insertStatement, nextId];
+}
+
+async function updateParentForLocations(connection, idMap) {
+    if(idMap.size > 0) {
+        let update = 'INSERT INTO location(location_id, parent_location) VALUES ';
+        let lastPart = ' ON DUPLICATE KEY UPDATE parent_location = VALUES(parent_location)';
+
+        let values = '';
+        idMap.forEach((locationId, srcParentId) => {
+            values += `(${locationId}, ${beehive.locationMap.get(srcParentId)})`;
+        });
+
+        let query = update + values + lastPart;
+        utils.logDebug('Location parents update query:', query);
+        await connection.query(query);
+    }
+    return idMap.size;
 }
 
 async function consolidateLocations(srcConn, destConn) {
@@ -73,6 +97,9 @@ async function consolidateLocations(srcConn, destConn) {
             [sql] = prepareLocationInsert(missingInDest, nextLocationId);
             utils.logDebug('Location insert statement:\n', utils.shortenInsert(sql));
             let [result] = await destConn.query(sql);
+
+            await updateParentForLocations(destConn, notYetUpdatedWithParentLocations);
+            
             return result.affectedRows;
         }
         return 0;
