@@ -22,12 +22,14 @@ function prepareObsInsert(rows, nextId) {
     let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
     let obsGroupsId = row['obs_group_id'] === null ? null : beehive.obsMap.get(row['obs_group_id']);
     let previous = row['previous_version']=== null ? null : beehive.obsMap.get(row['previous_version']);
+    let encounterId = row['encounter_id'] === null ? null : beehive.encounterMap.get(row['encounter_id']);
+    let locationId = row['location_id'] === null ? null : beehive.locationMap.get(row['location_id']);
     beehive.obsMap.set(row['obs_id'], nextId);
 
     toBeinserted += `(${nextId}, ${beehive.personMap.get(row['person_id'])}, `
-        + `${row['concept_id']},  ${beehive.encounterMap.get(row['encounter_id'])}, `
+        + `${row['concept_id']},  ${encounterId}, `
         + `${row['order_id']}, ${strValue(utils.formatDate(row['obs_datetime']))}, `
-        + `${beehive.locationMap.get(row['location_id'])}, ${obsGroupsId}, `
+        + `${locationId}, ${obsGroupsId}, `
         + `${strValue(row['accession_number'])}, ${row['value_group_id']}, `
         + `${row['value_boolean']}, ${row['value_coded']}, `
         + `${row['value_coded_name_id']}, ${row['value_drug']}, `
