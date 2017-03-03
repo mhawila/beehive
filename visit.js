@@ -22,7 +22,7 @@ function prepareVisitTypeInsert(rows, nextId) {
 
       toBeinserted += `(${nextId}, ${strValue(row['name'])}, `
           + `${strValue(row['description'])}, `
-          + `${userMap.get(row['creator'])}, `
+          + `${beehive.userMap.get(row['creator'])}, `
           + `${strValue(utils.formatDate(row['date_created']))}, ${changedBy}, `
           + `${strValue(utils.formatDate(row['date_changed']))}, `
           + `${row['retired']}, ${retiredBy}, `
@@ -52,12 +52,12 @@ function prepareVisitInsert(rows, nextId) {
 
     beehive.visitMap.set(row['visit_id'], nextId);
 
-    toBeinserted += `(${nextId}, ${personMap.get(row['patient_id'])}, `
-        + `${visitTypeMap.get(row['visit_type_id'])}, `
+    toBeinserted += `(${nextId}, ${beehive.personMap.get(row['patient_id'])}, `
+        + `${beehive.visitTypeMap.get(row['visit_type_id'])}, `
         + `${strValue(utils.formatDate(row['date_started']))}, `
         + `${strValue(utils.formatDate(row['date_stopped']))}, `
-        + `${row['indication_concept_id']}, ${locationMap.get(row['location_id'])}, `
-        + `${userMap.get(row['creator'])}, `
+        + `${row['indication_concept_id']}, ${beehive.locationMap.get(row['location_id'])}, `
+        + `${beehive.userMap.get(row['creator'])}, `
         + `${strValue(utils.formatDate(row['date_created']))}, `
         + `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}, `
         + `${row['voided']}, ${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, `
