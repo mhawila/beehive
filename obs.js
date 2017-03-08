@@ -3,6 +3,8 @@ let strValue = utils.stringValue;
 let moveAllTableRecords = utils.moveAllTableRecords;
 
 let beehive = global.beehive;
+let obsWithTheirGroupNotUpdated = new Map();
+let obsWithPreviousNotUpdated = new Map();
 
 function prepareObsInsert(rows, nextId) {
   let insert = 'INSERT INTO obs(obs_id, person_id, concept_id, encounter_id, '
@@ -25,6 +27,20 @@ function prepareObsInsert(rows, nextId) {
     let encounterId = row['encounter_id'] === null ? null : beehive.encounterMap.get(row['encounter_id']);
     let locationId = row['location_id'] === null ? null : beehive.locationMap.get(row['location_id']);
     beehive.obsMap.set(row['obs_id'], nextId);
+
+    if(obsGroupsId === undefined) {
+        obsGroupsId = null;
+        if(row['obs_group_id'] !== null) {
+            obsWithTheirGroupNotUpdated.set(nextId, row['obs_group_id']);
+        }
+    }
+
+    if(previous === undefined) {
+        previous = null;
+        if(row['previous_version'] !== null) {
+            obsWithPreviousNotUpdated.set(nextId, row['previous_version']);
+        }
+    }
 
     toBeinserted += `(${nextId}, ${beehive.personMap.get(row['person_id'])}, `
         + `${row['concept_id']},  ${encounterId}, `
@@ -54,6 +70,26 @@ async function moveObs(srcConn, destConn) {
                   prepareObsInsert);
 }
 
+async function updateObsPreviousOrGroupId(connection, idMap, field) {
+    if(idMap.size > 0) {
+        let update = `INSERT INTO obs(obs_id, ${field}) VALUES `;
+        let lastPart = ` ON DUPLICATE KEY UPDATE ${field} = VALUES(${field})`;
+
+        let values = '';
+        idMap.forEach((srcIdValue, obsId) => {
+            if(values.length > 1) {
+                values += ',';
+            }
+            values += `(${obsId}, ${beehive.obsMap.get(srcIdValue)})`;
+        });
+
+        let query = update + values + lastPart;
+        utils.logDebug(`${field} update query:`, query);
+        await connection.query(query);
+    }
+    return idMap.size;
+}
+
 module.exports = async function(srcConn, destConn) {
     utils.logInfo('Moving obs...');
     let srcObsCount = await utils.getCount(srcConn, 'obs');
@@ -64,6 +100,9 @@ module.exports = async function(srcConn, destConn) {
     let finalDestCount = await utils.getCount(destConn, 'obs');
 
     if (finalDestCount === expectedFinalCount) {
+        // Update obs_group_id & previous_version for records not yet updated
+        await updateObsPreviousOrGroupId(destConn, obsWithTheirGroupNotUpdated, 'obs_group_id');
+        await updateObsPreviousOrGroupId(destConn, obsWithPreviousNotUpdated, 'previous_version');
         utils.logOk(`Ok... ${moved} obs moved.`);
     } else {
         let error = `Problem moving obs: the actual final count ` +
