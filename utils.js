@@ -78,6 +78,7 @@ let moveAllTableRecords = async function(srcConn, destConn, tableName, orderColu
     let moved = 0;
     let queryLogged = false;
     let query = null;
+    let [q, nextId] = [null, -1];
     try {
         while (temp % config.batchSize > 0) {
             query = fetchQuery;
@@ -92,7 +93,7 @@ let moveAllTableRecords = async function(srcConn, destConn, tableName, orderColu
             }
             start += config.batchSize;
             let [r] = await srcConn.query(query);
-            let [q, nextId] = insertQueryPrepareFunction.call(null, r, nextAutoIncr);
+            [q, nextId] = insertQueryPrepareFunction.call(null, r, nextAutoIncr);
 
             if (!queryLogged) {
                 logDebug(`${tableName} insert statement:\n`, shortenInsertStatement(q));
@@ -110,9 +111,10 @@ let moveAllTableRecords = async function(srcConn, destConn, tableName, orderColu
     }
     catch(ex) {
         logError(`An error occured when moving ${tableName} records`);
-        if(query) {
-            logError('Statement during error:');
-            logError(query);
+        if(q) {
+            logError('Select statement:', query);
+            logError('Insert statement during error');
+            logError(q);
         }
         throw ex;
     }
