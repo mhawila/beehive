@@ -77,34 +77,45 @@ let moveAllTableRecords = async function(srcConn, destConn, tableName, orderColu
     let temp = countToMove;
     let moved = 0;
     let queryLogged = false;
-    while (temp % config.batchSize > 0) {
-        let query = fetchQuery;
-        if (Math.floor(temp / config.batchSize) > 0) {
-            // moved += config.batchSize;
-            query += start + ', ' + config.batchSize;
-            temp -= config.batchSize;
-        } else {
-            // moved += temp;
-            query += start + ', ' + temp;
-            temp = 0;
-        }
-        start += config.batchSize;
-        let [r] = await srcConn.query(query);
-        let [q, nextId] = insertQueryPrepareFunction.call(null, r, nextAutoIncr);
+    let query = null;
+    try {
+        while (temp % config.batchSize > 0) {
+            query = fetchQuery;
+            if (Math.floor(temp / config.batchSize) > 0) {
+                // moved += config.batchSize;
+                query += start + ', ' + config.batchSize;
+                temp -= config.batchSize;
+            } else {
+                // moved += temp;
+                query += start + ', ' + temp;
+                temp = 0;
+            }
+            start += config.batchSize;
+            let [r] = await srcConn.query(query);
+            let [q, nextId] = insertQueryPrepareFunction.call(null, r, nextAutoIncr);
 
-        if (!queryLogged) {
-            logDebug(`${tableName} insert statement:\n`, shortenInsertStatement(q));
-            queryLogged = true;
-        }
+            if (!queryLogged) {
+                logDebug(`${tableName} insert statement:\n`, shortenInsertStatement(q));
+                queryLogged = true;
+            }
 
-        if(q) {
-            [r] = await destConn.query(q);
-            moved += r.affectedRows;
-        }
+            if(q) {
+                [r] = await destConn.query(q);
+                moved += r.affectedRows;
+            }
 
-        nextAutoIncr = nextId;
+            nextAutoIncr = nextId;
+        }
+        return moved;
     }
-    return moved;
+    catch(ex) {
+        logError(`An error occured when moving ${tableName} records`);
+        if(query) {
+            logError('Statement during error:');
+            logError(query);
+        }
+        throw ex;
+    }
 }
 
 let logError = function(...args) {
