@@ -57,6 +57,50 @@ function uuid(existing) {
     return `'${existing}'`;
 }
 
+let consolidateTableRecords = async function(srcConn, destConn, table,
+    comparisonColumn, idColumn, idMap, insertQueryPrepareFunction) {
+    let query = `SELECT * FROM ${table}`;
+    let [srcRecords] = await srcConn.query(query);
+    let [destRecords] = await destConn.query(query);
+
+    let missingInDest = [];
+    srcRecords.forEach(srcRecord => {
+        let match = destRecords.find(destRecord => {
+            return srcRecord[comparisonColumn] === destRecord[comparisonColumn];
+        });
+
+        if (match !== undefined && match !== null) {
+            idMap.set(srcRecord[idColumn],
+                match[idColumn]);
+        } else {
+            missingInDest.push(srcRecord);
+        }
+    });
+
+    if (missingInDest.length > 0) {
+        let sql = null;
+        try {
+            let nextDestId = await getNextAutoIncrementId(destConn, table);
+
+            [sql] = prepareIdentifierTypeInsert(missingInDest, nextDestId);
+            logDebug(`${table} insert statement:\n ${sql}`);
+            let [result] = await destConn.query(sql);
+            return result.affectedRows;
+        }
+        catch(ex) {
+            logError(`An error occured while consolidating ${table} records`);
+            if(sql) {
+                logError('Insert statement during error');
+                logError(sql);
+            }
+            throw ex;
+        }
+    }
+    else {
+        return 0;
+    }
+}
+
 /**
  * Utility function that moves all table records in config.batchSize batches
  * @param srcConn
@@ -165,5 +209,6 @@ module.exports = {
     logDebug: logDebug,
     logInfo: logInfo,
     uuid: uuid,
-    shortenInsert: shortenInsertStatement
+    shortenInsert: shortenInsertStatement,
+    consolidateRecords: consolidateTableRecords
 };
