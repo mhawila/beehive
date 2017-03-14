@@ -3,6 +3,8 @@ const logTime = utils.logTime;
 const strValue = utils.stringValue;
 const getCount = utils.getCount;
 const moveAllTableRecords = utils.moveAllTableRecords;
+const consolidateRecords = utils.consolidateRecords;
+const shortenInsert = utils.shortenInsert;
 
 let beehive = global.beehive;
 beehive.programMap = new Map();
@@ -167,8 +169,104 @@ function preparePatientStateInsert(rows) {
     return [query, -1];
 }
 
+async function consolidatePrograms(srcConn, destConn) {
+    return await consolidateRecords(srcConn, destConn, 'program', 'name',
+                    'program_id', beehive.programMap, prepareProgramInsert);
+}
+
+async function consolidateProgramWorkflows(srcConn, destConn) {
+    let comparisonColumns = [
+        {
+            name: 'program_id',
+            mapped: true,
+            mappedValueMap: beehive.programMap
+        },
+        'concept_id'
+    ];
+    return await consolidateRecords(srcConn, destConn,
+            'program_workflow',
+            comparisonColumns,
+            'program_workflow_id',
+            beehive.programWorkflowMap,
+            prepareProgramWorkflowInsert);
+}
+
+async function consolidateProgramWorkflowStates(srcConn, destConn) {
+    let comparisonColumns = [
+        {
+            name: 'program_workflow_id',
+            mapped: true,
+            mappedValueMap: beehive.programWorkflowMap
+        },
+        'concept_id',
+        'initial',
+        'terminal'
+    ];
+    return await consolidateRecords(srcConn, destConn,
+            'program_workflow_state',
+            comparisonColumns,
+            'program_workflow_state_id',
+            beehive.programWorkflowStateMap,
+            prepareProgramWorkflowStateInsert);
+}
+
+async function movePatientPrograms(srcConn, destConn) {
+    return await moveAllTableRecords(srcConn, destConn, 'patient_program',
+                    'patient_program_id', preparePatientProgramInsert);
+}
+
+async function movePatientStates(srcConn, destConn) {
+    return await moveAllTableRecords(srcConn, destConn, 'patient_state',
+                    'patient_state_id', preparePatientStateInsert);
+}
+
 async function main(srcConn, destConn) {
-    
+    utils.logInfo('Consolidating programs...');
+    let moved = await consolidatePrograms(srcConn, destConn);
+    utils.logOk(`OK... ${moved} program copied to destination.`);
+
+    utils.logInfo('Consolidating programs workflows...');
+    moved = await consolidateProgramWorkflows(srcConn, destConn);
+    utils.logOk(`OK... ${moved} program workflows copied to destination.`);
+
+    utils.logInfo('Consolidating programs workflow states...');
+    moved = await consolidateProgramWorkflowStates(srcConn, destConn);
+    utils.logOk(`OK... ${moved} program work flow states copied to destination.`);
+
+    utils.logInfo('Moving patients programs...');
+    let iDestCount = await getCount(destConn, 'patient_program');
+
+    moved = await movePatientPrograms(srcConn, destConn);
+
+    let fDestCount = await getCount(destConn, 'patient_program');
+    let expectedFinalCount = iDestCount + moved;
+
+    if (fDestCount === expectedFinalCount) {
+        utils.logOk(`OK... ${moved} patient_program records moved.`);
+
+        utils.logInfo('Moving patient_state records...');
+        iDestCount = await getCount(destConn, 'patient_state');
+
+        moved = await movePatientStates(srcConn, destConn);
+
+        fDestCount = await getCount(destConn, 'patient_state');
+        expectedFinalCount = iDestCount + moved;
+        if (fDestCount === expectedFinalCount) {
+            utils.logOk(`OK... ${moved} patient_state records moved.`);
+        } else {
+            let message = 'There is a problem in moving patient_state records, ' +
+                'the final expected ' +
+                `count (${expectedFinalCount}) does not equal the actual final ` +
+                `count (${fDestCount})`;
+            throw new Error(message);
+        }
+    } else {
+        let message = 'There is a problem in moving patient_program records, ' +
+            'the final expected ' +
+            `count (${expectedFinalCount}) does not equal the actual final ` +
+            `count (${fDestCount})`;
+        throw new Error(message);
+    }
 }
 
 module.exports = main;

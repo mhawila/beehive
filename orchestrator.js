@@ -6,6 +6,7 @@ const insertSource = preparation.insertSource;
 const movePersonsUsersAndAssociatedTables = require('./person-users');
 const locationsMover = require('./location');
 const patientsMover = require('./patient');
+const programsMover = require('./patient-programs');
 const providersMover = require('./provider');
 const visitsMover = require('./visit');
 const encounterMover = require('./encounter');
@@ -61,6 +62,9 @@ async function orchestration() {
         //patients & identifiers
         await patientsMover(srcConn, destConn);
 
+        //programs
+        await programsMover(srcConn, destConn);
+        
         //providers & provider attributes
         await providersMover(srcConn, destConn);
 
