@@ -3,6 +3,8 @@
     const utils = require('./utils');
     const stringValue = utils.stringValue;
 
+    // personMap also represents patientMap because person & patient
+    // are one to one
     let beehiveMapNames = [
         'personMap',
         'personAttributeTypeMap',
@@ -26,7 +28,7 @@
 
     //Add admin person_id mapping it to 1
     global.beehive.personMap.set(1,1);
-    
+
     async function _sourceAlreadyExists(connection, source) {
         let query = 'SELECT source FROM beehive_merge_source where source = ' +
             `'${source}'`;
