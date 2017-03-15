@@ -11,6 +11,7 @@ const providersMover = require('./provider');
 const visitsMover = require('./visit');
 const encounterMover = require('./encounter');
 const obsMover = require('./obs');
+const gaacModuleTablesMover = require('./gaac');
 const utils = require('./utils');
 const logTime = utils.logTime;
 const config = require('./config');
@@ -64,7 +65,7 @@ async function orchestration() {
 
         //programs
         await programsMover(srcConn, destConn);
-        
+
         //providers & provider attributes
         await providersMover(srcConn, destConn);
 
@@ -76,6 +77,9 @@ async function orchestration() {
 
         //obs
         await obsMover(srcConn, destConn);
+
+        //gaac tables
+        await gaacModuleTablesMover(srcConn, destConn);
 
         if (!persist) {
             await insertSource(destConn, config.source.location);

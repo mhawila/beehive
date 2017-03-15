@@ -4,7 +4,6 @@ const strValue = utils.stringValue;
 const getCount = utils.getCount;
 const moveAllTableRecords = utils.moveAllTableRecords;
 const consolidateRecords = utils.consolidateRecords;
-const shortenInsert = utils.shortenInsert;
 
 let beehive = global.beehive;
 beehive.programMap = new Map();

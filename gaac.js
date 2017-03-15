@@ -3,6 +3,7 @@ const logTime = utils.logTime;
 const strValue = utils.stringValue;
 const getCount = utils.getCount;
 const moveAllTableRecords = utils.moveAllTableRecords;
+const consolidateRecords = utils.consolidateRecords;
 
 let beehive = global.beehive;
 beehive.gaacMap = new Map();
@@ -134,8 +135,81 @@ function prepareGaacMemberInsert(rows) {
     return [query, -1];
 }
 
+async function consolidateGaacAffinityTypes(srcConn, destConn) {
+    return await consolidateRecords(srcConn, destConn, 'gaac_affinity_type',
+            'name', 'gaac_affinity_type_id', beehive.gaacAffinityTypeMap,
+            prepareGaacAffinityTypeInsert);
+}
+
+async function consolidateGaacReasonLeavingTypes(srcConn, destConn) {
+    return await consolidateRecords(srcConn, destConn, 'gaac_reason_leaving_type',
+            'name', 'gaac_reason_leaving_type_id', beehive.gaacReasonLeavingTypeMap,
+            prepareGaacReasonLeavingTypeInsert);
+}
+
+async function moveGaacs(srcConn, destConn) {
+    return await moveAllTableRecords(srcConn, destConn, 'gaac', 'gaac_id',
+                    prepareGaacInsert);
+}
+
+async function moveGaacMembers(srcConn, destConn) {
+    return await moveAllTableRecords(srcConn, destConn, 'gaac_member',
+                    'gaac_member_id', prepareGaacMemberInsert);
+}
+
 async function main(srcConn, destConn) {
-    // TODO
+    utils.logInfo('Moving GAAC module tables');
+
+    utils.logInfo('Checking if gaac module tables exists in source');
+    let [r] = await srcConn.query(`SHOW TABLES LIKE 'gaac%'`);
+
+    if(r.length === 0) {
+        utils.logInfo('No gaac tables found');
+        return;
+    }
+
+    utils.logInfo('Consolidating GAAC Affinity types...');
+    let moved = await consolidateGaacAffinityTypes(srcConn, destConn);
+    utils.logOk(`Ok...${moved} records from gaac_affinity_type moved`);
+
+    utils.logInfo('Consolidating GAAC Reason for leaving types...');
+    moved = await consolidateGaacReasonLeavingTypes(srcConn, destConn);
+    utils.logOk(`Ok...${moved} records from gaac_reason_leaving_type moved`);
+
+    utils.logInfo('Moving Gaacs...');
+    let iDestCount = await utils.getCount(destConn, 'gaac');
+    moved = await moveGaacs(srcConn, destConn);
+
+    let fDestCount = await utils.getCount(destConn, 'gaac');
+    let expectedFinal = iDestCount + moved;
+
+    if(fDestCount === expectedFinal) {
+        utils.logOk(`OK... ${moved} gaac records moved.`);
+
+        utils.logInfo('Moving gaac_member records...');
+        iDestCount = await getCount(destConn, 'gaac_member');
+
+        moved = await moveGaacMembers(srcConn, destConn);
+
+        fDestCount = await getCount(destConn, 'gaac_member');
+        expectedFinal = iDestCount + moved;
+        if (fDestCount === expectedFinal) {
+            utils.logOk(`OK... ${moved} gaac_member records moved.`);
+        } else {
+            let message = 'There is a problem in moving gaac_member records, ' +
+                'the final expected ' +
+                `count (${expectedFinal}) does not equal the actual final ` +
+                `count (${fDestCount})`;
+            throw new Error(message);
+        }
+    }
+    else {
+        let message = 'There is a problem in moving gaac records, ' +
+            'the final expected ' +
+            `count (${expectedFinal}) does not equal the actual final ` +
+            `count (${fDestCount})`;
+        throw new Error(message);
+    }
 }
 
 module.exports = main;
