@@ -183,7 +183,7 @@ function preparePersonAttributeTypeInsert(rows, nextId) {
         if (toBeinserted.length > 1) {
             toBeinserted += ',';
         }
-        let retireBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
+        let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
         let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
         toBeinserted += `(${nextId}, ${strValue(row['name'])}, ` +
