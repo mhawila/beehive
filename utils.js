@@ -89,7 +89,7 @@ let consolidateTableRecords = async function(srcConn, destConn, table,
     let missingInDest = [];
     srcRecords.forEach(srcRecord => {
         let match = destRecords.find(destRecord => {
-            if(Array.isArry(comparisonColumns)) {
+            if(Array.isArray(comparisonColumns)) {
                 let compareResult = true;
                 comparisonColumns.forEach(col => {
                     if(typeof col === 'string') {
