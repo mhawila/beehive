@@ -100,7 +100,7 @@ let consolidateTableRecords = async function(srcConn, destConn, table,
                     else {
                         if(col.mapped) {
                             compareResult = compareResult && (
-                                mappedValueMap.get(srcRecord[col.name]) === destRecord[col.name]
+                                col.mappedValueMap.get(srcRecord[col.name]) === destRecord[col.name]
                             );
                         }
                         else {
