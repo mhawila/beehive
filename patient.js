@@ -17,11 +17,13 @@ function preparePatientInsert(rows) {
             toBeinserted += ',';
         }
 
-        let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
-        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+        let voidedBy = (row['voided_by'] === null ? null :
+                            beehive.userMap.get(row['voided_by']));
+        let changedBy = (row['changed_by'] === null ? null :
+                            beehive.userMap.get(row['changed_by']));
 
-        toBeinserted += `(${beehive.personMap.get(row['patient_id'])}, ${row['tribe']}, ` +
-            `${beehive.userMap.get(row['creator'])}, ` +
+        toBeinserted += `(${beehive.personMap.get(row['patient_id'])}, ` +
+            `${row['tribe']}, ${beehive.userMap.get(row['creator'])}, ` +
             `${strValue(utils.formatDate(row['date_created']))},` +
             `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))},` +
             `${row['voided']}, ${voidedBy},` +
@@ -78,12 +80,17 @@ function preparePatientIdentifierInsert(rows, nextId) {
             toBeinserted += ',';
         }
 
-        let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
-        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+        let voidedBy = (row['voided_by'] === null ? null :
+                            beehive.userMap.get(row['voided_by']));
+        let changedBy = (row['changed_by'] === null ? null :
+                            beehive.userMap.get(row['changed_by']));
+        let locationId = (row['location_id'] === null ? null :
+                            beehive.locationMap.get(row['location_id']));
 
         toBeinserted += `(${nextId}, ${beehive.personMap.get(row['patient_id'])}, ` +
-            `${strValue(row['identifier'])}, ${beehive.identifierTypeMap.get(row['identifier_type'])}, ` +
-            `${row['preferred']},  ${beehive.locationMap.get(row['location_id'])}, ` +
+            `${strValue(row['identifier'])}, ` +
+            `${beehive.identifierTypeMap.get(row['identifier_type'])}, ` +
+            `${row['preferred']},  ${locationId}, ` +
             `${beehive.userMap.get(row['creator'])}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ${row['voided']}, ` +
             `${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, ` +
