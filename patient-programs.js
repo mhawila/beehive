@@ -9,6 +9,7 @@ let beehive = global.beehive;
 beehive.programMap = new Map();
 beehive.programWorkflowMap = new Map();
 beehive.patientProgramMap = new Map();
+beehive.programWorkflowStateMap = new Map();
 
 function prepareProgramInsert(rows, nextId) {
     let insert = 'INSERT INTO program(program_id, concept_id, creator, ' +
@@ -114,6 +115,8 @@ function preparePatientProgramInsert(rows, nextId) {
 
         let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
         let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+        let locationId = (row['location_id'] === null ? null :
+                            beehive.locationMap.get(row['location_id']));
 
         beehive.patientProgramMap.set(row['patient_program_id'], nextId);
 
@@ -126,9 +129,8 @@ function preparePatientProgramInsert(rows, nextId) {
             `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}, ` +
             `${row['voided']}, ${voidedBy}, ` +
             `${strValue(utils.formatDate(row['date_voided']))}, ` +
-            `${strValue(row['void_reason'])}, ${utils.uuid(row['uuid'])}` +
-            `${beehive.locationMap.get(row['location_id'])}, ` +
-            `${row['outcome_concept_id']})`
+            `${strValue(row['void_reason'])}, ${utils.uuid(row['uuid'])}, ` +
+            `${locationId}, ${row['outcome_concept_id']})`;
 
         nextId++;
     });
