@@ -68,6 +68,16 @@ Below is the list of tables whose records are moved.
 
 26. *obs*
 
+27. *program*
+
+28. *program_workflow*
+
+29. *program_workflow_state*
+
+30. *patient_state*
+
+31. *GAAC module tables*
+
 ## Requirements
 * nodejs 7+
 
