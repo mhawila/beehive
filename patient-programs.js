@@ -118,6 +118,11 @@ function preparePatientProgramInsert(rows, nextId) {
         let locationId = (row['location_id'] === null ? null :
                             beehive.locationMap.get(row['location_id']));
 
+        // Do this for location_ids that no longer exists in the system.                    
+        if(locationId === undefined) {
+            locationId = null;
+        }
+
         beehive.patientProgramMap.set(row['patient_program_id'], nextId);
 
         toBeinserted += `(${nextId}, ${beehive.personMap.get(row['patient_id'])}, ` +
