@@ -2,17 +2,17 @@
 
 ## Introduction
 This nodejs application merges two instances of OpenMRS databases into one. It
-works by connection to the two databases and move data from designated source
+works by connecting to the two databases and move data from designated source
 database into designated destination database. Once run successfully, the
 designated destination database will be a merger of the two initial instances.
 
 **Note:**
 1. If you still want the original copy of the destination database, then
    you have to create a copy before running this application on it.
-2. The assumption is made that the two OpenMRS instance share the same
-    concepts, forms.
+2. The assumption is made that the two OpenMRS instances share the same
+    metadata (i.e. concepts, forms e.t.c).
 3. For the purpose of this implementation, some of the tables are purposely ignored
-   (See below for the list of forms included)
+   (See below for the list of tables included)
 
 ## Tables
 Below is the list of tables whose records are moved.
