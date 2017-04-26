@@ -1,6 +1,7 @@
 'use strict';
 const connection = require('./connection').connection;
 const preparation = require('./preparation');
+const uuidChecks = require('./uuid-checks');
 const prepare = preparation.prepare;
 const insertSource = preparation.insertSource;
 const movePersonsUsersAndAssociatedTables = require('./person-users');
@@ -47,10 +48,15 @@ async function orchestration() {
         srcConn = await connection(config.source);
         destConn = await connection(config.destination);
 
+        // Check for UUID collisions
+
         if(!dryRun) {
             utils.logInfo(logTime(), ': Preparing destination database...');
             await prepare(destConn, config);
         }
+
+        utils.logInfo(logTime(), ': Ensuring uniqueness of UUIDs');
+        await uuidChecks(srcConn, destConn, dryRun, true);
 
         utils.logInfo(logTime(), ': Starting data migration ...');
         destConn.query('START TRANSACTION');
