@@ -245,6 +245,13 @@ let shortenInsertStatement = function(statement) {
     return statement.substring(0, lastParenth + 1) + '...';
 }
 
+async function personIdsToexclude(connection) {
+    // Get the person associated with daemon user
+    let exclude = `SELECT person_id from users WHERE system_id IN ('daemon', 'admin')`;
+    let [ids] = await connection.query(exclude);
+    return ids.map(id => id['person_id']);
+}
+
 module.exports = {
     getNextAutoIncrementId: getNextAutoIncrementId,
     getCount: getCount,
@@ -258,5 +265,6 @@ module.exports = {
     logInfo: logInfo,
     uuid: uuid,
     shortenInsert: shortenInsertStatement,
-    consolidateRecords: consolidateTableRecords
+    consolidateRecords: consolidateTableRecords,
+    personIdsToexclude: personIdsToexclude
 };

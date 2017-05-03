@@ -251,19 +251,20 @@ async function main(srcConn, destConn, dryRun, useTransaction) {
         return;
     }
 
+    let excluded = await utils.personIdsToexclude(srcConn);
+    let toExclude = '(' + excluded.join(',') + ')';
+
     let coreTables = [
-        { table: 'person', condition: 't1.person_id != 1' },    // Exclude admin person
+        { table: 'person', condition: `t1.person_id NOT IN ${toExclude}` },    // Exclude admin person
         { table: 'person_attribute_type' },
         { table: 'person_attribute' },
-        { table: 'person_name', condition: 't1.person_id != 1' },   // Exclude admin person
+        { table: 'person_name', condition: `t1.person_id NOT IN ${toExclude}` },   // Exclude admin person
         { table: 'person_address' },
         { table: 'relationship_type' },
         { table: 'relationship' },
         { table: 'patient_identifier_type' },
         { table: 'patient_identifier'},
-        { table: 'users', primaryKey: 'user_id' },
-        { table: 'role', primaryKey: 'role', primaryKeyType: 'text'},
-        { table: 'privilege', primaryKey: 'privilege', primaryKeyType: 'text'},
+        { table: 'users', primaryKey: 'user_id', condition: `t1.system_id NOT IN('daemon', 'admin')` },
         { table: 'location' },
         { table: 'provider' },
         { table: 'provider_attribute_type'},

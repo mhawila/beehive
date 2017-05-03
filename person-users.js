@@ -599,7 +599,12 @@ async function createUserTree(connection, rootUserId, tree) {
 }
 
 async function movePersonNamesforMovedPersons(srcConn, destConn) {
-    let fetchQuery = 'SELECT * FROM person_name order by person_name_id LIMIT ';
+    let excluded = await personIdsToexclude(srcConn);
+    let toExclude = '(' + excluded.join(',') + ')';
+
+    let fetchQuery = `SELECT * FROM person_name WHERE ` +
+            `person_id NOT IN ${toExclude} order by person_name_id LIMIT `;
+
     let startingRecord = 0;
     let dynamicQuery = fetchQuery + `${startingRecord}, ${BATCH_SIZE}`;
     let [r, f] = await srcConn.query(dynamicQuery);
