@@ -320,9 +320,10 @@ async function main(srcConn, destConn, dryRun, useTransaction) {
             i = 0;
             for(; i < gaacTables.length; i++) {
                 gaacTables[i].connection = srcConn;
+                let changes = null;
                 do {
                     // Do until all UUIDs are unique.
-                    let changes = await ensureUniqueUuids(gaacTables[i]);
+                    changes = await ensureUniqueUuids(gaacTables[i]);
 
                     if(changes !== null && changes.length > 0) {
                         changesMap.set(gaacTables[i].table, changes);
