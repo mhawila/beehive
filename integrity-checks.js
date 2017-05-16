@@ -1,5 +1,6 @@
 'use strict';
 const utils = require('./utils');
+const prettyPrintRows = require('./display-utils').prettyPrintRows;
 
 async function checkForeignKeys(connection, params) {
     let query = `SELECT ${params.primaryKey},${params.foreignKey} ` +
@@ -111,16 +112,27 @@ async function doWork(connection, schema) {
 }
 
 async function main(connection, schema) {
-    utils.logInfo('Running checks to determine whether foreign keys are preserved');
     let resultsMap = await doWork(connection, schema);
 
     if(resultsMap.size > 0) {
-        // Print the stuff.
-        // resultsMap.forEach((value, key) => {
-        //     console.log('Table: ' + key);
-        //     console.log(value);
-        // });
-        throw new Error(`Cannot proceed because of the data inconsistencies`)
+        utils.logError(`Below tables have orphaned foreign key values in ` +
+            `source database`);
+        let headerColumns = {
+            table: 'Table',
+            primaryKey: 'PRI Key Name',
+            foreignKey: 'FRG Key Name',
+            foreignKeyTable: 'REF Table',
+            reference: 'REF Field',
+            primaryKeyValue: 'PRI Key Value',
+            foreignKeyValue: 'Orphaned FRG Key Value'
+        }
+        resultsMap.forEach((results, table) => {
+            utils.logError(`${table} table problematic records`);
+            prettyPrintRows(results, headerColumns);
+            console.log();  //Blank line
+        });
+        throw new Error(`Cannot proceed because of the data inconsistencies, ` +
+            `Please fix the errors before proceeding`);
     }
 }
 

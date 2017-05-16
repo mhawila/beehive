@@ -2,6 +2,7 @@
 const connection = require('./connection').connection;
 const preparation = require('./preparation');
 const uuidChecks = require('./uuid-checks');
+const integrityChecks = require('./integrity-checks');
 const prepare = preparation.prepare;
 const insertSource = preparation.insertSource;
 const movePersonsUsersAndAssociatedTables = require('./person-users');
@@ -54,6 +55,9 @@ async function orchestration() {
             utils.logInfo(logTime(), ': Preparing destination database...');
             await prepare(destConn, config);
         }
+
+        utils.logInfo(logTime(), ': Checking for Orphaned Records');
+        await integrityChecks(srcConn, config.source.openmrsDb);
 
         utils.logInfo(logTime(), ': Ensuring uniqueness of UUIDs');
         await uuidChecks(srcConn, destConn, dryRun, true);
