@@ -790,8 +790,16 @@ async function updateUsersPersonIds(connection, idMap) {
     });
 
     let statement = update + values + lastPart;
-    let [r] = await connection.query(statement);
-    return r.affectedRows;
+    try {
+        let [r] = await connection.query(statement);
+        return r.affectedRows;
+    }
+    catch(ex) {
+        utils.logError('Error: while updating users person_id(s)');
+        utils.logError('SQL statement during error');
+        utils.logError(statement);
+        throw ex;
+    }
 }
 
 async function updateAuditInfoForPersons(srcConn, destConn) {
@@ -807,34 +815,52 @@ async function updateAuditInfoForPersons(srcConn, destConn) {
     let startingRecord = 0;
     let updated = 0;
     let queryLogged = false;
-    while( temp % BATCH_SIZE) {
-        //Do in batches
-        let query = queryParts;
-        if (Math.floor(temp / BATCH_SIZE) > 0) {
-            query += startingRecord + ', ' + BATCH_SIZE;
-            temp -= BATCH_SIZE;
-        } else {
-            query += startingRecord + ', ' + temp;
-            temp = 0;
-        }
-        startingRecord += BATCH_SIZE;
-
-        let [records] = await srcConn.query(query);
-        let [updateStmt, toUpdate] = preparePersonAuditInfoUpdateQuery(records);
-
-        // Update audit info in destination
-        if(toUpdate > 0) {
-            if (!queryLogged) {
-                utils.logDebug('Person Audit Info fetch query:', query);
-                utils.logDebug('Person Audit Info Update statement:');
-                utils.logDebug(utils.shortenInsert(updateStmt));
-                queryLogged = true;
+    let query = null;
+    let [updateStmt, toUpdate] = [null, 0];
+    try {
+        while( temp % BATCH_SIZE) {
+            //Do in batches
+            query = queryParts;
+            if (Math.floor(temp / BATCH_SIZE) > 0) {
+                query += startingRecord + ', ' + BATCH_SIZE;
+                temp -= BATCH_SIZE;
+            } else {
+                query += startingRecord + ', ' + temp;
+                temp = 0;
             }
-            updated += toUpdate;
-            await destConn.query(updateStmt);
+            startingRecord += BATCH_SIZE;
+
+            let [records] = await srcConn.query(query);
+            [updateStmt, toUpdate] = preparePersonAuditInfoUpdateQuery(records);
+
+            // Update audit info in destination
+            if(toUpdate > 0) {
+                if (!queryLogged) {
+                    utils.logDebug('Person Audit Info fetch query:', query);
+                    utils.logDebug('Person Audit Info Update statement:');
+                    utils.logDebug(utils.shortenInsert(updateStmt));
+                    queryLogged = true;
+                }
+                updated += toUpdate;
+                await destConn.query(updateStmt);
+            }
         }
+        return updated;
     }
-    return updated;
+    catch(ex) {
+        utils.logError('Error: While updating persons audit information');
+        if(query) {
+            utils.logError('Person Audit Info fetch query during the error:');
+            utils.logError(query);
+        }
+        if(updateStmt) {
+            utils.logDebug('Number of persons to be updated', toUpdate);
+            utils.logError('Person Audit Info Update Statement during error:');
+            utils.logError(updateStmt);
+
+        }
+        throw ex;
+    }
 }
 
 async function updateAuditInfoForUsers(srcConn, destConn) {
@@ -852,34 +878,52 @@ async function updateAuditInfoForUsers(srcConn, destConn) {
     let startingRecord = 0;
     let updated = 0;
     let queryLogged = false;
-    while( temp % BATCH_SIZE) {
-        //Do in batches
-        let query = queryParts;
-        if (Math.floor(temp / BATCH_SIZE) > 0) {
-            query += startingRecord + ', ' + BATCH_SIZE;
-            temp -= BATCH_SIZE;
-        } else {
-            query += startingRecord + ', ' + temp;
-            temp = 0;
-        }
-        startingRecord += BATCH_SIZE;
-
-        let [records] = await srcConn.query(query);
-        let [updateStmt, toUpdate] = prepareUserAuditInfoUpdateQuery(records);
-
-        // Update audit info in destination
-        if(toUpdate > 0) {
-            if (!queryLogged) {
-                utils.logDebug('User Audit Info fetch query:', query);
-                utils.logDebug('User Audit Info Update statement:');
-                utils.logDebug(utils.shortenInsert(updateStmt))
-                queryLogged = true;
+    let query = null;
+    let [updateStmt, toUpdate] = [null, 0];
+    try {
+        while( temp % BATCH_SIZE) {
+            //Do in batches
+            query = queryParts;
+            if (Math.floor(temp / BATCH_SIZE) > 0) {
+                query += startingRecord + ', ' + BATCH_SIZE;
+                temp -= BATCH_SIZE;
+            } else {
+                query += startingRecord + ', ' + temp;
+                temp = 0;
             }
-            updated += toUpdate;
-            await destConn.query(updateStmt);
+            startingRecord += BATCH_SIZE;
+
+            let [records] = await srcConn.query(query);
+            let [updateStmt, toUpdate] = prepareUserAuditInfoUpdateQuery(records);
+
+            // Update audit info in destination
+            if(toUpdate > 0) {
+                if (!queryLogged) {
+                    utils.logDebug('User Audit Info fetch query:', query);
+                    utils.logDebug('User Audit Info Update statement:');
+                    utils.logDebug(utils.shortenInsert(updateStmt))
+                    queryLogged = true;
+                }
+                updated += toUpdate;
+                await destConn.query(updateStmt);
+            }
         }
+        return updated;
     }
-    return updated;
+    catch(ex) {
+        utils.logError('Error: While updating users audit information');
+        if(query) {
+            utils.logError('User Audit Info fetch query during the error:');
+            utils.logError(query);
+        }
+        if(updateStmt) {
+            utils.logDebug('Number of users to be updated', toUpdate);
+            utils.logError('User Audit Info Update Statement during error:');
+            utils.logError(updateStmt);
+
+        }
+        throw ex;
+    }
 }
 
 async function main(srcConn, destConn) {
