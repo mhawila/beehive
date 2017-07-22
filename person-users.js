@@ -509,21 +509,21 @@ async function consolidateRelationshipTypes(srcConn, destConn) {
 
 async function moveRelationships(srcConn, destConn) {
     let excluded = '(' + global.excludedPersonIds.join(',') + ')';
-    let condition = `NOT IN ${excluded}`;
+    let condition = `person_a NOT IN ${excluded}`;
     return await moveAllTableRecords(srcConn, destConn, 'relationship',
         'relationship_id', prepareRelationshipInsert, condition);
 }
 
 async function movePersonAddresses(srcConn, destConn) {
     let excluded = '(' + global.excludedPersonIds.join(',') + ')';
-    let condition = `NOT IN ${excluded}`;
+    let condition = `person_id NOT IN ${excluded}`;
     return await moveAllTableRecords(srcConn, destConn, 'person_address',
         'person_address_id', preparePersonAddressInsert, condition);
 }
 
 async function movePersonAttributes(srcConn, destConn) {
     let excluded = '(' + global.excludedPersonIds.join(',') + ')';
-    let condition = `NOT IN ${excluded}`;
+    let condition = `person_id NOT IN ${excluded}`;
     return await moveAllTableRecords(srcConn, destConn, 'person_attribute',
         'person_attribute_id', preparePersonAttributeInsert, condition);
 }
