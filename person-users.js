@@ -508,22 +508,29 @@ async function consolidateRelationshipTypes(srcConn, destConn) {
 }
 
 async function moveRelationships(srcConn, destConn) {
+    let excluded = '(' + global.excludedPersonIds.join(',') + ')';
+    let condition = `NOT IN ${excluded}`;
     return await moveAllTableRecords(srcConn, destConn, 'relationship',
-        'relationship_id', prepareRelationshipInsert);
+        'relationship_id', prepareRelationshipInsert, condition);
 }
 
 async function movePersonAddresses(srcConn, destConn) {
+    let excluded = '(' + global.excludedPersonIds.join(',') + ')';
+    let condition = `NOT IN ${excluded}`;
     return await moveAllTableRecords(srcConn, destConn, 'person_address',
-        'person_address_id', preparePersonAddressInsert);
+        'person_address_id', preparePersonAddressInsert, condition);
 }
 
 async function movePersonAttributes(srcConn, destConn) {
+    let excluded = '(' + global.excludedPersonIds.join(',') + ')';
+    let condition = `NOT IN ${excluded}`;
     return await moveAllTableRecords(srcConn, destConn, 'person_attribute',
-        'person_attribute_id', preparePersonAttributeInsert);
+        'person_attribute_id', preparePersonAttributeInsert, condition);
 }
 
 async function updateMovedUsersRoles(srcConn, destConn) {
-    let query = 'SELECT * FROM user_role WHERE user_id NOT IN (1,2)';
+    let excluded = '(' + global.excludedUsersIds.join(',') + ')';
+    let query = `SELECT * FROM user_role WHERE user_id NOT IN ${excluded}`;
     let [rows] = await srcConn.query(query);
     if (rows.length > 0) {
         let insert = prepareUserRoleInsert(rows);
