@@ -53,7 +53,7 @@ async function orchestration() {
 
         if(!dryRun) {
             utils.logInfo(logTime(), ': Preparing destination database...');
-            await prepare(destConn, config);
+            await prepare(srcConn,destConn, config);
         }
 
         utils.logInfo(logTime(), ': Checking for Orphaned Records');
