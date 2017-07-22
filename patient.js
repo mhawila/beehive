@@ -7,7 +7,7 @@ const moveAllTableRecords = utils.moveAllTableRecords;
 let beehive = global.beehive;
 
 function preparePatientInsert(rows) {
-    let insert = 'INSERT INTO patient(patient_id, tribe, creator, date_created, ' +
+    let insert = 'INSERT INTO patient(patient_id, creator, date_created, ' +
         'changed_by, date_changed, voided, voided_by, date_voided, ' +
         'void_reason) VALUES ';
 
@@ -23,7 +23,7 @@ function preparePatientInsert(rows) {
                             beehive.userMap.get(row['changed_by']));
 
         toBeinserted += `(${beehive.personMap.get(row['patient_id'])}, ` +
-            `${row['tribe']}, ${beehive.userMap.get(row['creator'])}, ` +
+            `${beehive.userMap.get(row['creator'])}, ` +
             `${strValue(utils.formatDate(row['date_created']))},` +
             `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))},` +
             `${row['voided']}, ${voidedBy},` +
