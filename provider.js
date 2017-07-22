@@ -1,6 +1,7 @@
 let utils = require('./utils');
 let strValue = utils.stringValue;
 let moveAllTableRecords = utils.moveAllTableRecords;
+let consolidateTableRecords = utils.consolidateTableRecords;
 
 let beehive = global.beehive;
 
@@ -106,7 +107,7 @@ function prepareProviderAttributeInsert(rows, nextId) {
 }
 
 async function consolidateProviderAttributeTypes(srcConn, destConn) {
-    let query = 'SELECT * FROM person_attribute_type';
+    let query = 'SELECT * FROM provider_attribute_type';
     let [srcProvAttTypes] = await srcConn.query(query);
     let [destProvAttTypes] = await destConn.query(query);
 
@@ -136,9 +137,9 @@ async function consolidateProviderAttributeTypes(srcConn, destConn) {
     }
 }
 
-async function moveProviders(srcConn, destConn) {
-    return await moveAllTableRecords(srcConn, destConn, 'provider', 'provider_id',
-        prepareProviderInsert);
+async function consolidateProviders(srcConn, destConn) {
+    return await consolidateTableRecords(srcConn, destConn, 'provider', 'uuid',
+        'provider_id', global.beehive.providerMap, prepareProviderInsert);
 }
 
 async function moveProviderAttributes(srcConn, destConn) {
@@ -151,7 +152,7 @@ async function main(srcConn, destConn) {
     let initialDestCount = await utils.getCount(destConn, 'provider');
 
     utils.logInfo('Moving providers...');
-    let moved = await moveProviders(srcConn, destConn);
+    let moved = await consolidateProviders(srcConn, destConn);
 
     let finalDestCount = await utils.getCount(destConn, 'provider');
     let expectedFinalCount = initialDestCount + moved;
