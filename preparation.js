@@ -1,5 +1,7 @@
 (function() {
     global.beehive = {};
+    global.excludedPersonIds = [];
+    global.excludedUsersIds = [];
     const utils = require('./utils');
     const stringValue = utils.stringValue;
 
@@ -39,27 +41,27 @@
         return false;
     }
 
-    async function prepareForNewSource(connection, config) {
+    async function prepareForNewSource(srcConn, destConn, config) {
         let source = config.source.location;
         let persist = config.persist || false;
 
         let check = `SHOW TABLES LIKE 'beehive_merge_source'`;
-        let [result] = await connection.query(check);
+        let [result] = await destConn.query(check);
         if (result.length === 0) {
             //Not created yet.
-            await _createSourceTable(connection);
+            await _createSourceTable(destConn);
             if (persist) {
-                await _createTables(connection);
+                await _createTables(destConn);
             }
-            // await _insertSource(connection, source);
+            // await _insertSource(destConn, source);
         } else {
             // TODO: If we decide to do transaction in chunks this section will be relevant
             // check if source already exists.
-            let sourceExists = await _sourceAlreadyExists(connection, source);
+            let sourceExists = await _sourceAlreadyExists(destConn, source);
             if (persist) {
                 if (!sourceExists) {
                     // Initial run
-                    await _insertSource(connection, source);
+                    await _insertSource(destConn, source);
                 } else {
                     // Second or more run
                     // TODO: Populate the maps from persisted tables
@@ -72,6 +74,8 @@
                 }
             }
         }
+        // prepare the excluded person_ids
+        await _usersAndAssociatedPersonsToExclude(srcConn, destConn);
     }
 
     function _createMapTable(tableSuffix) {
@@ -125,6 +129,32 @@
             if (i === 0) utils.logDebug('MapTables Statement', mapTable);
             await connection.query(mapTable);
         }
+    }
+
+    async function _usersAndAssociatedPersonsToExclude(srcConn, destConn) {
+        let exclude = `SELECT * from users WHERE system_id IN ('daemon', 'admin')`;
+        let [results] = await srcConn.query(exclude);
+        global.excludedPersonIds = results.map(result => result['person_id']);
+        global.excludedUsersIds = results.map(result => result['user_id']);
+
+        let q = `SELECT * FROM users where system_id NOT IN ('admin', 'daemon')`;
+        let [srcUsers] = await srcConn.query(q);
+        let [destUsers] = await destConn.query(q);
+
+        srcUsers.forEach(su => {
+            let match = destUsers.find(du => {
+                return ((su['system_id'] === du['system_id'] &&
+                            su['username'] === du['username'])
+                            || su['uuid'] === du['uuid']);
+            });
+
+            if(match) {
+                global.excludedUsersIds.push(su['user_id']);
+                global.excludedPersonIds.push(su['person_id']);
+                global.beehive.userMap.set(su['user_id'], du['user_id']);
+                global.beehive.personMap.set(su['person_id'], du['person_id']);
+            }
+        });
     }
 
     module.exports = {

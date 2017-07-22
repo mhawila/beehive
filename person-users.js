@@ -8,6 +8,8 @@ const config = require('./config');
 
 const BATCH_SIZE = config.batchSize || 200;
 let beehive = global.beehive;
+let excludedPersons = global.excludedPersonIds;
+let excludedUsers = global.excludedUsersIds;
 
 const movedLaterPersonsMap = new Map();
 
@@ -599,8 +601,7 @@ async function createUserTree(connection, rootUserId, tree) {
 }
 
 async function movePersonNamesforMovedPersons(srcConn, destConn) {
-    let excluded = await personIdsToexclude(srcConn);
-    let toExclude = '(' + excluded.join(',') + ')';
+    let toExclude = '(' + excludedPersons.join(',') + ')';
 
     let fetchQuery = `SELECT * FROM person_name WHERE ` +
             `person_id NOT IN ${toExclude} order by person_name_id LIMIT `;
@@ -634,20 +635,12 @@ async function movePersonNamesforMovedPersons(srcConn, destConn) {
     return moved;
 }
 
-async function personIdsToexclude(connection) {
-    // Get the person associated with daemon user
-    let exclude = `SELECT person_id from users WHERE system_id IN ('daemon', 'admin')`;
-    let [ids] = await connection.query(exclude);
-    return ids.map(id => id['person_id']);
-}
-
 async function movePersons(srcConn, destConn, srcUserId) {
     let [q, nextId] = [undefined, -1];
     try {
         // Get next person id in the destination
         let nextPersonId = await utils.getNextAutoIncrementId(destConn, 'person');
-        let excluded = await personIdsToexclude(srcConn);
-        let toExclude = '(' + excluded.join(',') + ')';
+        let toExclude = '(' + excludedPersons.join(',') + ')';
 
         let countCondition = `creator = ${srcUserId} AND person_id NOT IN ${toExclude}`;
         let personsToMoveCount = await getPersonsCount(srcConn, countCondition);
@@ -702,7 +695,8 @@ async function movePersons(srcConn, destConn, srcUserId) {
 async function moveUsers(srcConn, destConn, creatorId) {
     let [insertStmt, nextId] = [undefined, -1];
     try {
-        let condition = `creator=${creatorId} and system_id not in ('daemon','admin')`;
+        let toExclude = '(' + excludedUsers.join(',') + ')';
+        let condition = `creator=${creatorId} AND user_id NOT IN ${toExclude}`;
         let nextUserId = await utils.getNextAutoIncrementId(destConn, 'users');
         let usersToMoveCount = await getUsersCount(srcConn, condition);
 
@@ -865,13 +859,14 @@ async function updateAuditInfoForPersons(srcConn, destConn) {
 
 async function updateAuditInfoForUsers(srcConn, destConn) {
     //At this point the beehive.personMap is already populated
+    let toExclude = '(' + excludedUsers.join(',') + ')';
     let countQuery = `SELECT count(*) as 'count' FROM users ` +
                 `WHERE (changed_by IS NOT NULL OR retired_by IS NOT NULL) ` +
-                `AND system_id NOT IN ('admin', 'daemon')`;
+                `AND user_id NOT IN ${toExclude}`;
 
     let queryParts = 'SELECT user_id, changed_by, retired_by FROM users ' +
                 'WHERE (changed_by IS NOT NULL OR retired_by IS NOT NULL) ' +
-                `AND system_id NOT IN ('admin', 'daemon') LIMIT `;
+                `AND user_id NOT IN ${toExclude} LIMIT `;
 
     let [count] = await srcConn.query(countQuery);
     let temp = count[0]['count'];
@@ -931,8 +926,7 @@ async function main(srcConn, destConn) {
     const srcUsersCount = await getUsersCount(srcConn);
     const initialDestUsersCount = await getUsersCount(destConn);
 
-    let excluded = await personIdsToexclude(srcConn);
-    let countCondition = 'person_id NOT IN (' + excluded.join(',') + ')';
+    let countCondition = 'person_id NOT IN (' + excludedPersons.join(',') + ')';
     const srcPersonCount = await getPersonsCount(srcConn, countCondition);
     const initialDestPersonCount = await getPersonsCount(destConn);
 
