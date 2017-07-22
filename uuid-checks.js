@@ -251,41 +251,28 @@ async function main(srcConn, destConn, dryRun, useTransaction) {
         return;
     }
 
-    let excluded = await utils.personIdsToexclude(srcConn);
-    let toExclude = '(' + excluded.join(',') + ')';
-
+    let toExclude = '(' + global.excludedPersonIds.join(',') + ')';
+    let usersToExclude = '(' + global.excludedUsersIds.join(',') + ')';
     let coreTables = [
         { table: 'person', condition: `t1.person_id NOT IN ${toExclude}` },    // Exclude admin person
-        { table: 'person_attribute_type' },
         { table: 'person_attribute' },
         { table: 'person_name', condition: `t1.person_id NOT IN ${toExclude}` },   // Exclude admin person
         { table: 'person_address' },
-        { table: 'relationship_type' },
         { table: 'relationship' },
-        { table: 'patient_identifier_type' },
-        { table: 'patient_identifier'},
-        { table: 'users', primaryKey: 'user_id', condition: `t1.system_id NOT IN('daemon', 'admin')` },
+        { table: 'patient_identifier' },
+        { table: 'users', primaryKey: 'user_id', condition: `t1.user_id NOT IN ${usersToExclude}` },
         { table: 'location' },
         { table: 'provider' },
-        { table: 'provider_attribute_type'},
         { table: 'provider_attribute'},
         { table: 'visit' },
-        { table: 'visit_type' },
         { table: 'encounter' },
-        { table: 'encounter_role' },
         { table: 'encounter_provider'},
         { table: 'obs' },
-        { table: 'program' },
-        { table: 'program_workflow' },
-        { table: 'program_workflow_state' },
-        { table: 'patient_state' }
     ];
 
     let gaacTables = [
         { table: 'gaac' },
         { table: 'gaac_member' },
-        { table: 'gaac_affinity_type' },
-        { table: 'gaac_reason_leaving_type' }
     ];
 
     let i = 0;
