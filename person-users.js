@@ -462,7 +462,8 @@ async function consolidatePersonAttributeTypes(srcConn, destConn) {
     let toAdd = [];
     sAttributeTypes.forEach(sAttributeType => {
         let match = dAttributeTypes.find(dAttributeType => {
-            return sAttributeType['name'] === dAttributeType['name'];
+            return (sAttributeType['name'] === dAttributeType['name'] ||
+                        sAttributeType['uuid'] === dAttributeType['uuid']);
         });
         if (match !== undefined) {
             beehive.personAttributeTypeMap.set(sAttributeType['person_attribute_type_id'],

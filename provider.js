@@ -113,7 +113,8 @@ async function consolidateProviderAttributeTypes(srcConn, destConn) {
     let missingInDest = [];
     srcProvAttTypes.forEach(srcProvAttType => {
         let match = destProvAttTypes.find(destProvAttType => {
-            return srcProvAttType['name'] === destProvAttType['name'];
+            return (srcProvAttType['name'] === destProvAttType['name'] ||
+                        srcProvAttType['uuid'] === destProvAttType['uuid']);
         });
 
         if (match !== undefined && match !== null) {

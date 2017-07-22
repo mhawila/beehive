@@ -257,13 +257,10 @@ async function main(srcConn, destConn, dryRun, useTransaction) {
         { table: 'person', condition: `t1.person_id NOT IN ${toExclude}` },    // Exclude admin person
         { table: 'person_attribute' },
         { table: 'person_name', condition: `t1.person_id NOT IN ${toExclude}` },   // Exclude admin person
-        { table: 'person_address' },
+        { table: 'person_address', condition: `t1.person_id NOT IN ${toExclude}`},
         { table: 'relationship' },
         { table: 'patient_identifier' },
         { table: 'users', primaryKey: 'user_id', condition: `t1.user_id NOT IN ${usersToExclude}` },
-        { table: 'location' },
-        { table: 'provider' },
-        { table: 'provider_attribute'},
         { table: 'visit' },
         { table: 'encounter' },
         { table: 'encounter_provider'},
