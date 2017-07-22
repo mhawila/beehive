@@ -543,7 +543,8 @@ async function getUsersCount(connection, condition) {
         let [results] = await connection.query(countQuery);
         return results[0]['users_count'];
     } catch (ex) {
-        utils.logError('Error: while fetching users count', ex);
+        utils.logError('Error: while fetching users count');
+        utils.logError('Query: ', countQuery);
         throw ex;
     }
 }
@@ -561,6 +562,7 @@ async function getPersonsCount(connection, condition) {
         return results[0]['person_count'];
     } catch (ex) {
         utils.logError('Error while fetching number of records in person table');
+        utils.logError('Query: ', personCountQuery);
         throw ex;
     }
 }
