@@ -1,7 +1,7 @@
 let utils = require('./utils');
 let strValue = utils.stringValue;
 let moveAllTableRecords = utils.moveAllTableRecords;
-let consolidateTableRecords = utils.consolidateTableRecords;
+let consolidateTableRecords = utils.consolidateRecords;
 
 let beehive = global.beehive;
 

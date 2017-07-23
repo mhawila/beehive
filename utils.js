@@ -269,6 +269,6 @@ module.exports = {
     logInfo: logInfo,
     uuid: uuid,
     shortenInsert: shortenInsertStatement,
-    consolidateTableRecords: consolidateTableRecords,
+    consolidateRecords: consolidateTableRecords,
     personIdsToexclude: personIdsToexclude
 };
