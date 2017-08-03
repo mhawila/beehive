@@ -49,6 +49,7 @@ function prepareVisitInsert(rows, nextId) {
     }
     let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
     let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+    let location = row['location_id'] === null ? null : beehive.locationMap.get(row['location_id']);
 
     beehive.visitMap.set(row['visit_id'], nextId);
 
@@ -56,7 +57,7 @@ function prepareVisitInsert(rows, nextId) {
         + `${beehive.visitTypeMap.get(row['visit_type_id'])}, `
         + `${strValue(utils.formatDate(row['date_started']))}, `
         + `${strValue(utils.formatDate(row['date_stopped']))}, `
-        + `${row['indication_concept_id']}, ${beehive.locationMap.get(row['location_id'])}, `
+        + `${row['indication_concept_id']}, ${location}, `
         + `${beehive.userMap.get(row['creator'])}, `
         + `${strValue(utils.formatDate(row['date_created']))}, `
         + `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}, `
