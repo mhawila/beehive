@@ -99,7 +99,11 @@ async function doWork(connection, schema) {
             let existing = resultsMap.get(tablesInfo[i]['table_name']);
             if(existing) {
                 //There is already something there.
-                Array.prototype.push.apply(existing, transformed);
+                // This below kills the stack hence has to be replaced.
+                // Array.prototype.push.apply(existing, transformed);
+                for(let i=0; i < transformed.length; i++) {
+                    existing.push(transformed[i]);
+                }
                 resultsMap.set(tablesInfo[i]['table_name'], existing);
             }
             else {
