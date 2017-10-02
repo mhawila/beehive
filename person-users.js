@@ -459,24 +459,34 @@ async function consolidatePersonAttributeTypes(srcConn, destConn) {
     let [sAttributeTypes] = await srcConn.query(query);
     let [dAttributeTypes] = await destConn.query(query);
 
-    let toAdd = [];
-    sAttributeTypes.forEach(sAttributeType => {
-        let match = dAttributeTypes.find(dAttributeType => {
-            return (sAttributeType['name'] === dAttributeType['name'] ||
-                        sAttributeType['uuid'] === dAttributeType['uuid']);
+    let toAdd = [], stmt;
+    try {
+        sAttributeTypes.forEach(sAttributeType => {
+            let match = dAttributeTypes.find(dAttributeType => {
+                return (sAttributeType['name'] === dAttributeType['name'] ||
+                            sAttributeType['uuid'] === dAttributeType['uuid']);
+            });
+            if (match !== undefined) {
+                beehive.personAttributeTypeMap.set(sAttributeType['person_attribute_type_id'],
+                    match['person_attribute_type_id']);
+            } else {
+                toAdd.push(sAttributeType);
+            }
         });
-        if (match !== undefined) {
-            beehive.personAttributeTypeMap.set(sAttributeType['person_attribute_type_id'],
-                match['person_attribute_type_id']);
-        } else {
-            toAdd.push(sAttributeType);
-        }
-    });
-    if (toAdd.length > 0) {
-        let nextId = await utils.getNextAutoIncrementId(destConn, 'person_attribute_type');
+        if (toAdd.length > 0) {
+            let nextId = await utils.getNextAutoIncrementId(destConn, 'person_attribute_type');
 
-        let [stmt] = preparePersonAttributeTypeInsert(toAdd, nextId);
-        await destConn.query(stmt);
+            [stmt] = preparePersonAttributeTypeInsert(toAdd, nextId);
+            await destConn.query(stmt);
+        }
+    }
+    catch(ex) {
+        utils.logError(`An error occured when consolidating attribute types`);
+        if(stmt) {
+            utils.logError('Statement During error:');
+            utils.logError(stmt);
+        }
+        throw ex;
     }
 }
 
