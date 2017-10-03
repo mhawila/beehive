@@ -12,28 +12,26 @@ function prepareProviderInsert(rows, nextId) {
 
     let toBeinserted = '';
     rows.forEach(row => {
-        let currentPersonId = beehive.personMap.get(row['person_id']);
-        if(currentPersonId) {
-            if (toBeinserted.length > 1) {
-                toBeinserted += ',';
-            }
-
-            let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
-            let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
-
-            beehive.providerMap.set(row['provider_id'], nextId);
-
-            toBeinserted += `(${nextId}, ${currentPersonId}, ` +
-                `${strValue(row['name'])}, ${strValue(row['identifier'])}, ` +
-                `${beehive.userMap.get(row['creator'])}, ` +
-                `${strValue(utils.formatDate(row['date_created']))}, ${changedBy}, ` +
-                `${strValue(utils.formatDate(row['date_changed']))}, ` +
-                `${row['retired']}, ${retiredBy}, ` +
-                `${strValue(utils.formatDate(row['date_retired']))}, ` +
-                `${strValue(row['retire_reason'])}, ${utils.uuid(row['uuid'])})`;
-
-            nextId++;
+        if (toBeinserted.length > 1) {
+            toBeinserted += ',';
         }
+
+        let currentPersonId = row['person_id'] === null ? null : beehive.personMap.get(row['person_id']);
+        let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
+        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+
+        beehive.providerMap.set(row['provider_id'], nextId);
+
+        toBeinserted += `(${nextId}, ${currentPersonId}, ` +
+            `${strValue(row['name'])}, ${strValue(row['identifier'])}, ` +
+            `${beehive.userMap.get(row['creator'])}, ` +
+            `${strValue(utils.formatDate(row['date_created']))}, ${changedBy}, ` +
+            `${strValue(utils.formatDate(row['date_changed']))}, ` +
+            `${row['retired']}, ${retiredBy}, ` +
+            `${strValue(utils.formatDate(row['date_retired']))}, ` +
+            `${strValue(row['retire_reason'])}, ${utils.uuid(row['uuid'])})`;
+
+        nextId++;
     });
 
     let query = null;
