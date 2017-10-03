@@ -240,7 +240,7 @@ let logInfo = function(...args) {
 
 let shortenInsertStatement = function(statement) {
     let charcount = 700;
-    if(statement === undefined || statement === null) statement;
+    if(statement === undefined || statement === null) return statement;
     let valuesIndex = statement.indexOf('VALUES');
     if(valuesIndex == -1)return statement
     if(statement.substring(valuesIndex).length <= charcount) return statement;
