@@ -161,7 +161,7 @@ let consolidateTableRecords = async function(srcConn, destConn, table,
 let moveAllTableRecords = async function(srcConn, destConn, tableName, orderColumn,
     insertQueryPrepareFunction, condition) {
     // Get the count to be pushed
-    let countToMove = await getCount(srcConn, tableName);
+    let countToMove = await getCount(srcConn, tableName, condition);
     let nextAutoIncr = await getNextAutoIncrementId(destConn, tableName);
 
     let fetchQuery = `SELECT * FROM ${tableName} `;
