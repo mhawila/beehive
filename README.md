@@ -131,3 +131,14 @@ Running without committing changes to the database (Dry running)
 ```shell
 $ node --harmony orchestrator.js --dry-run
 ```
+
+### Memory Issues.
+This application can be very memory intensive because it reads large sections of tables into memory.
+As a result because the default memory limit in Node.js is 512 MB, sometimes the user might experience the `Javascript heap out of memory` error when merging big databases.
+
+V8 which Node.js is based provided an option `--max_old_space_size=Y` where `Y` is the number interpreted as
+megabytes. You can use this option to specify more memory. The example below shows node run with max 2GB of memory allocated to it.
+
+```shell
+$ node --harmony --max_old_space_size=2048 orchestrator.js
+```
