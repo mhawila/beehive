@@ -43,15 +43,16 @@
 
     async function prepareForNewSource(srcConn, destConn, config) {
         let source = config.source.location;
+        global.beehive['idMapTable'] = `_beehive_id_map_${source}`;
         let persist = config.persist || false;
 
-        let check = `SHOW TABLES LIKE 'beehive_merge_source'`;
+        let check = `SHOW TABLES LIKE '_beehive_merge_source'`;
         let [result] = await destConn.query(check);
         if (result.length === 0) {
             //Not created yet.
             await _createSourceTable(destConn);
             if (persist) {
-                await _createTables(destConn);
+                await _createTables(destConn, source);
             }
             // await _insertSource(destConn, source);
         } else {
@@ -78,25 +79,15 @@
         await _usersAndAssociatedPersonsToExclude(srcConn, destConn);
     }
 
-    function _createMapTable(tableSuffix) {
-        let stmt = 'CREATE TABLE IF NOT EXISTS beehive_merge_' + tableSuffix +
-            '(source VARCHAR(50),' +
-            'src_id INT(11) NOT NULL,' +
-            'dest_id INT(11) NOT NULL,' +
-            'UNIQUE(source, src_id)' +
-            ')';
-        return stmt;
-    }
-
     async function _insertSource(connection, source) {
-        let s = `insert into beehive_merge_source values(${stringValue(source)})`;
+        let s = `insert into _beehive_merge_source values(${stringValue(source)})`;
         utils.logDebug(s);
         let [r] = await connection.query(s);
         return r.affectedRows;
     }
 
     async function _createSourceTable(connection) {
-        let sourceTable = 'CREATE TABLE IF NOT EXISTS beehive_merge_source(' +
+        let sourceTable = 'CREATE TABLE IF NOT EXISTS _beehive_merge_source(' +
             'source VARCHAR(50) PRIMARY KEY' +
             ')';
 
@@ -104,8 +95,8 @@
         await connection.query(sourceTable);
     }
 
-    async function _createTables(connection) {
-        let progressTable = 'CREATE TABLE IF NOT EXISTS beehive_merge_progress(' +
+    async function _createTables(connection, source) {
+        let progressTable = 'CREATE TABLE IF NOT EXISTS _beehive_merge_progress(' +
             'id INT(11) AUTO_INCREMENT PRIMARY KEY,' +
             'source VARCHAR(50) NOT NULL,' +
             'atomi_step VARCHAR(50) NOT NULL,' +
@@ -113,8 +104,15 @@
             'time_finished TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP' +
             ')';
 
+        let idMapTable = `CREATE TABLE IF NOT EXISTS ${global.beehive['idMapTable']}(` +
+            'table VARCHAR(50) NOT NULL, ' +
+            'source INT(11) NOT NULL, ' +
+            'destination INT(11) NOT NULL, ' +
+            'UNIQUE(table, source))';
+
         let tables = [
-            progressTable
+            progressTable,
+            idMapTable
         ];
 
         //Create these tables.
@@ -122,13 +120,6 @@
             utils.logDebug(tables[i]);
             await connection.query(tables[i]);
         };
-
-        for (let i = 0; i < beehiveMapNames.length; i++) {
-            let suffix = beehiveMapNames[i].toLowerCase();
-            let mapTable = _createMapTable(suffix);
-            if (i === 0) utils.logDebug('MapTables Statement', mapTable);
-            await connection.query(mapTable);
-        }
     }
 
     async function _usersAndAssociatedPersonsToExclude(srcConn, destConn) {

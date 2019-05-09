@@ -34,7 +34,7 @@ function preparePersonInsert(rows, nextPersonId) {
             `${strValue(utils.formatDate(row['date_voided']))},` +
             `${strValue(row['void_reason'])}, ${uuid(row['uuid'])})`;
         nextPersonId++;
-    })
+    });
 
     let query = insert + toBeinserted;
 

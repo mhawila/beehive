@@ -214,7 +214,35 @@ let moveAllTableRecords = async function(srcConn, destConn, tableName, orderColu
         }
         throw ex;
     }
-}
+};
+
+/**
+ * persistIdMapToDatabase persist the passed id map to the database for future use
+ * @param connection Usually a destination connection.
+ * @param table Table name whose source -> destination map are persisted.
+ * @param idMap The map containing the source->destination id maps.
+ */
+let persistIdMapToDatabase = async function(connection, table, idMap) {
+    let insert = `INSERT INTO ${global.beehive['idMapTable']} ` +
+        '(table, source, destionation) VALUES ';
+
+    let toBeinserted = '';
+    idMap.forEach((destinationId, sourceId) => {
+        if (toBeinserted.length > 1) {
+            toBeinserted += ',';
+        }
+        toBeinserted += `(${table}, ${sourceId}, ${destionationId})`;
+    });
+
+    let sql = insert + toBeinserted;
+    try {
+        await connection.query(sql);
+    } catch (ex) {
+        logError('Insert statement during error');
+        logError(sql);
+        throw ex;
+    }
+};
 
 let logError = function(...args) {
     args.splice(0, 0, "\x1b[31m");
@@ -270,5 +298,6 @@ module.exports = {
     uuid: uuid,
     shortenInsert: shortenInsertStatement,
     consolidateRecords: consolidateTableRecords,
-    personIdsToexclude: personIdsToexclude
+    personIdsToexclude: personIdsToexclude,
+    persistIdMapToDatabase: persistIdMapToDatabase
 };
