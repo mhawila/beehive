@@ -12,8 +12,9 @@ let connection = async function(hostInfo) {
             database: hostInfo.openmrsDb,
         });
     }
-    
+
     return await mysql.createConnection({
+        connectionLimit: 50,
         host: hostInfo.host,
         port: hostInfo.port || MYSQL_DEFAULT_PORT,
         user: hostInfo.username,

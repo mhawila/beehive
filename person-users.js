@@ -961,7 +961,7 @@ async function main(srcConn, destConn) {
 
     let srcAdminUserId = 1;
     if (rows.every(row => {
-            return row['user_id'] == !1;
+            return row['user_id'] ==! 1;
         })) {
         let r = rows.find(row => {
             return row['system_id'] === 'admin';
@@ -1000,32 +1000,58 @@ async function main(srcConn, destConn) {
         utils.logOk(`${count.movedPersonsCount} persons moved. Destination's new total is ${finalDestPersonCount}`);
         utils.logOk(`${count.movedUsersCount} users moved. Destination's new total is ${finalDestUserCount}`);
 
+        utils.logDebug('Persisting source => dest person_id & user_id map to database');
+        await Promise.all([
+            utils.persistIdMapToDatabase(destConn, 'person', beehive.personMap),
+            utils.persistIdMapToDatabase(destConn, 'users', beehive.userMap)
+        ]);
+
+        let [personAuditInfoCount, userAuditInfoCount, nameCount] = await Promise.all([
+            updateAuditInfoForPersons(srcConn, destConn),
+            updateAuditInfoForUsers(srcConn, destConn),
+            movePersonNamesforMovedPersons(srcConn, destConn)
+        ]);
+
         utils.logInfo('Updating Auditing Information for person table...');
-        count = await updateAuditInfoForPersons(srcConn, destConn);
-        utils.logInfo(`Ok...${count} records updated`);
+        // count = await updateAuditInfoForPersons(srcConn, destConn);
+        // utils.logInfo(`Ok...${count} records updated`);
 
         utils.logInfo('Updating Auditing information for users table...');
-        count = await updateAuditInfoForUsers(srcConn, destConn);
-        utils.logInfo(`Ok...${count} records updated`);
+        // count = await updateAuditInfoForUsers(srcConn, destConn);
+        // utils.logInfo(`Ok...${count} records updated`);
 
         utils.logInfo('Moving person names...');
-        count = await movePersonNamesforMovedPersons(srcConn, destConn);
-        utils.logOk(`Ok...${count} names moved`);
+        // count = await movePersonNamesforMovedPersons(srcConn, destConn);
+        // utils.logOk(`Ok...${count} names moved`);
+
+        await Promise.all([
+            consolidateRolesAndPrivileges(srcConn, destConn),
+            consolidateRelationshipTypes(srcConn, destConn),
+            consolidatePersonAttributeTypes(srcConn, destConn)
+        ]);
+
+        await Promise.all([
+            updateMovedUsersRoles(srcConn, destConn),
+            moveRelationships(srcConn, destConn),
+            movePersonAddresses(srcConn, destConn),
+            movePersonAttributes(srcConn, destConn)
+        ]);
 
         utils.logInfo(`Consolidating & updating roles & privileges...`);
         await consolidateRolesAndPrivileges(srcConn, destConn);
+
         await updateMovedUsersRoles(srcConn, destConn);
         utils.logOk('Ok...');
 
         utils.logInfo('Upate moved persons relationships...');
-        await consolidateRelationshipTypes(srcConn, destConn);
-        await moveRelationships(srcConn, destConn);
+        // await consolidateRelationshipTypes(srcConn, destConn);
+        // await moveRelationships(srcConn, destConn);
         utils.logOk('Ok...');
 
         utils.logInfo('Moving person addresses & attributes...');
-        await movePersonAddresses(srcConn, destConn);
-        await consolidatePersonAttributeTypes(srcConn, destConn);
-        await movePersonAttributes(srcConn, destConn);
+        // await movePersonAddresses(srcConn, destConn);
+        // await consolidatePersonAttributeTypes(srcConn, destConn);
+        // await movePersonAttributes(srcConn, destConn);
         utils.logOk('Ok...')
     } else {
         utils.logError('Expected & actual persons and/or users final numbers do not match!!');

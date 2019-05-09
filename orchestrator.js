@@ -51,19 +51,21 @@ async function orchestration() {
 
         // Check for UUID collisions
 
-        if(!dryRun) {
-            utils.logInfo(logTime(), ': Preparing destination database...');
-            await prepare(srcConn,destConn, config);
-        }
+        // if(!dryRun) {
+        //
+        // }
+
+        await destConn.query('START TRANSACTION');
+        utils.logInfo(logTime(), ': Preparing destination database...');
+        await prepare(srcConn,destConn, config);
 
         utils.logInfo(logTime(), ': Checking for Orphaned Records');
         await integrityChecks(srcConn, config.source.openmrsDb);
 
-        utils.logInfo(logTime(), ': Ensuring uniqueness of UUIDs');
-        await uuidChecks(srcConn, destConn, dryRun, true);
+        // utils.logInfo(logTime(), ': Ensuring uniqueness of UUIDs');
+        // await uuidChecks(srcConn, destConn, dryRun, true);
 
         utils.logInfo(logTime(), ': Starting data migration ...');
-        destConn.query('START TRANSACTION');
         await movePersonsUsersAndAssociatedTables(srcConn, destConn);
 
         utils.logInfo('Consolidating locations...');
@@ -96,20 +98,20 @@ async function orchestration() {
         }
 
         if(dryRun) {
-            destConn.query('ROLLBACK');
+            await destConn.query('ROLLBACK');
             utils.logOk(`Done...No database changes have been made!`)
         }
         else {
-            destConn.query('COMMIT');
+            if(destConn) await destConn.query('COMMIT');
             utils.logOk(`Done...All Data from ${config.source.location} copied.`);
         }
     } catch (ex) {
-        destConn.query('ROLLBACK');
+        if(destConn) await destConn.query('ROLLBACK');
         utils.logError(ex);
         utils.logInfo('Aborting...Rolled back, no data has been moved');
     } finally {
-        if (srcConn) srcConn.end();
-        if (destConn) destConn.end();
+        if (srcConn) await srcConn.end();
+        if (destConn) await destConn.end();
         let timeElapsed = (Date.now() - startTime);
         utils.logInfo(`Time elapsed: ${timeElapsed} ms`);
     }

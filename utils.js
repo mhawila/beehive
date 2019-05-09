@@ -222,24 +222,25 @@ let moveAllTableRecords = async function(srcConn, destConn, tableName, orderColu
  * @param table Table name whose source -> destination map are persisted.
  * @param idMap The map containing the source->destination id maps.
  */
-let persistIdMapToDatabase = async function(connection, table, idMap) {
+let persistIdMapToDatabase = async (connection, table, idMap) => {
     let insert = `INSERT INTO ${global.beehive['idMapTable']} ` +
-        '(table, source, destionation) VALUES ';
+        '(table_name, source, destination) VALUES ';
 
     let toBeinserted = '';
     idMap.forEach((destinationId, sourceId) => {
         if (toBeinserted.length > 1) {
             toBeinserted += ',';
         }
-        toBeinserted += `(${table}, ${sourceId}, ${destionationId})`;
+        toBeinserted += `('${table}', ${sourceId}, ${destinationId})`;
     });
 
     let sql = insert + toBeinserted;
     try {
+        await connection.query('BEGIN');
         await connection.query(sql);
     } catch (ex) {
         logError('Insert statement during error');
-        logError(sql);
+        logError(shortenInsertStatement(sql));
         throw ex;
     }
 };
