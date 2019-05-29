@@ -8,6 +8,63 @@ if (config.batchSize === undefined) {
     config.batchSize = 500;
 };
 
+let updateATransactionStep = async function(connection, step) {
+    let query = 'INSERT INTO beehive_merge_progress (source, atomic_step, passed) VALUES (' +
+        `${stringValue(config.source.location)}, ${stringValue(step)}, 1)`;
+    await connection.query(query);
+};
+
+let copyIdMapToDb = async function(connection, idMap, table) {
+    let start = 0;
+    let temp = idMap.size;
+    let copied = 0;
+    let queryLogged = false;
+    let mapEntries = idMap.entries();
+    let insertPrefix = `INSERT INTO ${global.beehive['idMapTable']}(table_name, source, destination) VALUES `;
+    let query = null;
+    try {
+        while (temp > 0) {
+            let toBeinserted = '';
+            let limit = -1;
+            if (Math.floor(temp / config.batchSize) > 0) {
+                limit = config.batchSize;
+                temp -= config.batchSize;
+            } else {
+                limit = temp;
+                temp = 0;
+            }
+
+            for(;start < limit; start++) {
+                if (toBeinserted.length > 1) {
+                    toBeinserted += ',';
+                }
+                let entry = mapEntries.next();
+                if(!entry.done) {
+                    toBeinserted = `(${stringValue(table)}, ${entry.value[0]}, ${entry.value[1]})`;
+                }
+            }
+            query = insertPrefix + toBeinserted;
+
+            if (!queryLogged) {
+                logDebug(`${tableName} insert statement:\n`, shortenInsertStatement(q));
+                queryLogged = true;
+            }
+
+            [r] = await connection.query(query);
+            copied += r.affectedRows;
+        }
+        return copied;
+    }
+    catch(ex) {
+        logError(`An error occured when copying ID map for table ${table} records`);
+        if(query) {
+            logError('Insert statement during error');
+            logError(query);
+        }
+        throw ex;
+    }
+};
+
 let getNextAutoIncrementId = async function(connection, table) {
     if (arguments.length < 2) {
         throw new Error('This utility function expects connection & table in that order');
@@ -176,7 +233,7 @@ let moveAllTableRecords = async function(srcConn, destConn, tableName, orderColu
     let query = null;
     let [q, nextId] = [null, -1];
     try {
-        while (temp % config.batchSize > 0) {
+        while (temp > 0) {
             query = fetchQuery;
             if (Math.floor(temp / config.batchSize) > 0) {
                 // moved += config.batchSize;
@@ -286,6 +343,8 @@ async function personIdsToexclude(connection) {
 }
 
 module.exports = {
+    copyIdMapToDb: copyIdMapToDb,
+    updateATransactionStep: updateATransactionStep,
     getNextAutoIncrementId: getNextAutoIncrementId,
     getCount: getCount,
     stringValue: stringValue,

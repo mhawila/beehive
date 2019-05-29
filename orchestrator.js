@@ -17,6 +17,7 @@ const gaacModuleTablesMover = require('./gaac');
 const utils = require('./utils');
 const logTime = utils.logTime;
 const config = require('./config');
+const beehive = global.beehive;
 
 
 async function orchestration() {
@@ -68,26 +69,63 @@ async function orchestration() {
         utils.logInfo(logTime(), ': Starting data migration ...');
         await movePersonsUsersAndAssociatedTables(srcConn, destConn);
 
+        if(!dryRun) {
+            // Copy Person & Users ID maps to the database.
+            await utils.copyIdMapToDb(destConn, global.beehive.personMap, 'person');
+            await utils.copyIdMapToDb(destConn, global.beehive.personAttributeTypeMap, 'person_attribute_type');
+            await utils.copyIdMapToDb(destConn, global.beehive.relationshipTypeMap, 'relationship_type');
+            await utils.copyIdMapToDb(destConn, global.beehive.userMap, 'users');
+        }
+
         utils.logInfo('Consolidating locations...');
         let movedLocations = await locationsMover(srcConn, destConn);
+
+        // Copy Location ID map to the database.
+        await utils.copyIdMapToDb(destConn, global.beehive.locationMap, 'location');
         utils.logOk(`Ok...${movedLocations} locations moved.`);
 
         //patients & identifiers
         await patientsMover(srcConn, destConn);
+        if(!dryRun) {
+            await utils.copyIdMapToDb(destConn, global.beehive.identifierTypeMap, 'patient_identifier_type');
+        }
 
         //programs
         await programsMover(srcConn, destConn);
 
         //providers & provider attributes
         await providersMover(srcConn, destConn);
+        if(!dryRun) {
+            await utils.copyIdMapToDb(destConn, global.beehive.providerAttributeTypeMap, 'provider_attribute_type');
+            await utils.copyIdMapToDb(destConn, global.beehive.providerMap, 'provider');
+        }
 
         //visits & visit types
         await visitsMover(srcConn, destConn);
+        if(!dryRun) {
+            await utils.copyIdMapToDb(destConn, global.beehive.visitTypeMap, 'visit_type');
+            await utils.copyIdMapToDb(destConn, global.beehive.visitMap, 'visit');
+        }
 
         //encounters, encounter_types, encounter_roles & encounter_providers
         await encounterMover(srcConn, destConn);
+        if(!dryRun) {
+            await utils.copyIdMapToDb(destConn, global.beehive.encounterTypeMap, 'encounter_type');
+            await utils.copyIdMapToDb(destConn, global.beehive.encounterRoleMap, 'encounter_role');
+            await utils.copyIdMapToDb(destConn, global.beehive.encounterMap, 'encounter');
+        }
 
+        // Record and Commit the transaction (first step)
+        if(!dryRun) {
+            await utils.updateATransactionStep(destConn, 'pre-obs');
+            await destConn.query('COMMIT');
+
+            // Start a new transaction.
+            await destConn.query('START TRANSACTION');
+        }
         //obs
+        // TODO: Handle chunk transactions when moving obs record (This is required as the obs table
+        // tends to be very big.)
         await obsMover(srcConn, destConn);
 
         //gaac tables
