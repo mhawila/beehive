@@ -1,30 +1,32 @@
 (function() {
     global.beehive = {};
+    global.startingStep = { 'atomic_step': 'pre-obs', 'passed': 0 };
     global.excludedPersonIds = [];
     global.excludedUsersIds = [];
     const utils = require('./utils');
     const stringValue = utils.stringValue;
+    const ID_MAP_TABLE_PREFIX = 'beehive_merge_idmap_';
 
     // personMap also represents patientMap because person & patient
     // are one to one
-    let beehiveMapNames = [
-        'personMap',
-        'personAttributeTypeMap',
-        'relationshipTypeMap',
-        'userMap',
-        'identifierTypeMap',
-        'locationMap',
-        'encounterMap',
-        'encounterRoleMap',
-        'encounterTypeMap',
-        'providerAttributeTypeMap',
-        'providerMap',
-        'visitTypeMap',
-        'visitMap',
-        'obsMap'
-    ];
+    const BEEHIVE_MAPS_NAMES = {
+        person: 'personMap',
+        person_attribute_type: 'personAttributeTypeMap',
+        relationship_type: 'relationshipTypeMap',
+        users: 'userMap',
+        patient_identifier_type: 'identifierTypeMap',
+        location: 'locationMap',
+        encounter: 'encounterMap',
+        encounter_role: 'encounterRoleMap',
+        encounter_type: 'encounterTypeMap',
+        provider_attribute_type: 'providerAttributeTypeMap',
+        provider: 'providerMap',
+        visit_type: 'visitTypeMap',
+        visit: 'visitMap',
+        obs: 'obsMap'
+    };
 
-    beehiveMapNames.forEach(mapName => {
+    Object.entries(BEEHIVE_MAPS_NAMES).forEach(([table, mapName]) => {
         global.beehive[mapName] = new Map();
     });
 
@@ -41,37 +43,39 @@
         return false;
     }
 
+    /**
+     * Prepares the destination for the new source. If persist flag is set to true, it means that the software
+     * should persist progress changes to the database to allow it to proceed from where it stopped successfully
+     * in cases where an error is encountered before the process is finished.
+     */
     async function prepareForNewSource(srcConn, destConn, config) {
         let source = config.source.location;
-        global.beehive['idMapTable'] = `beehive_merge_idmap_${source}`;
-        let persist = config.persist || false;
+        global.beehive['idMapTable'] = `${ID_MAP_TABLE_PREFIX}${source}`;
 
         let check = `SHOW TABLES LIKE 'beehive_merge_source'`;
         let [result] = await destConn.query(check);
         if (result.length === 0) {
             //Not created yet.
             await _createSourceTable(destConn);
-            // await _insertSource(destConn, source);
         } else {
-            // TODO: If we decide to do transaction in chunks this section will be relevant
-            // check if source already exists.
-            let sourceExists = await _sourceAlreadyExists(destConn, source);
-            if (persist) {
+            if (!global.dryRun) {
+                await _createProgressTables(destConn, source);
+                // check if source already exists.
+                let sourceExists = await _sourceAlreadyExists(destConn, source);
                 if (!sourceExists) {
                     // Initial run
                     await _insertSource(destConn, source);
                 } else {
                     // Second or more run
                     // TODO: Populate the maps from persisted tables
-                }
-                if (persist) {
-                    await _createProgressTables(destConn, source);
-                }
-            }
-            else {
-                if(sourceExists){
-                    let error = `Location ${source} already processed`;
-                    throw new Error(error);
+                    let finalStep = await _findPreviousRunFinalStep(destConn, source);
+                    if(finalStep['atomic_step'] === 'post-obs' && finalStep['passed']) {
+                        let error = `Location ${source} already processed`;
+                        throw new Error(error);
+                    } else {
+                        global.startingStep = finalStep;
+                        await _populateMapsFromPreviousRuns(destConn, source);
+                    }
                 }
             }
         }
@@ -95,19 +99,36 @@
         await connection.query(sourceTable);
     }
 
+    /**
+     * Find the final step on which the previos run stopped at for a given source.
+     * Three steps so (pre-obs, obs, post-obs)
+     */
+    async function _findPreviousRunFinalStep(connection, source) {
+        let query = `SELECT * FROM beehive_merge_progress WHERE source = ${stringValue(source)} ` +
+            'ORDER BY time_finished DESC LIMIT 1';
+        let [result] = await connection.query(query);
+
+        if(result.length === 0) return {
+            'atomic_step': 'pre-obs',
+            'passed': 0,
+        };
+
+        return result[0];
+    }
+
     async function _createProgressTables(connection, source) {
         let progressTable = 'CREATE TABLE IF NOT EXISTS beehive_merge_progress(' +
             'id INT(11) AUTO_INCREMENT PRIMARY KEY,' +
             'source VARCHAR(50) NOT NULL,' +
             'atomic_step VARCHAR(50) NOT NULL,' +
-            'passed TINYINT,' +
+            'passed INT(11),' +
             'time_finished TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP' +
             ')';
 
-        let idMapTable = `CREATE TABLE IF NOT EXISTS ${global.beehive['idMapTable']}(` +
+        let idMapTable = `CREATE TABLE IF NOT EXISTS ${ID_MAP_TABLE_PREFIX}${source}(` +
             'table_name VARCHAR(50) NOT NULL, ' +
-            'source INT(11) NOT NULL, ' +
-            'destination INT(11) NOT NULL, ' +
+            'source_id INT(11) NOT NULL, ' +
+            'destination_id INT(11) NOT NULL, ' +
             'CONSTRAINT unique_map_id_mapping_per_table UNIQUE(table_name, source))';
 
         let tables = [
@@ -148,8 +169,25 @@
         });
     }
 
+    async function _populateMapsFromPreviousRuns(connection, source) {
+        let entries = Object.entries(ID_MAP_TABLE_PREFIX);
+        for(let [tableName, mapName] of Object.entries(ID_MAP_TABLE_PREFIX)) {
+            await __populateAMapFromDb(connection, source, tableName, mapName);
+        }
+    }
+
+    async function __populateAMapFromDb(connection, source, tableName, mapName) {
+        let query = `SELECT * FROM ${ID_MAP_TABLE_PREFIX}${source} WHERE table_name = ${stringValue(tableName)}`;`
+        let [idMappings] = await connection.query(query);
+
+        if(idMappings.length > 0) {
+            idMappings.forEach(mapping => {
+                global.beehive[mapName].set(mapping['source_id'], mapping['destination_id']);
+            });
+        }
+    }
+
     module.exports = {
         prepare: prepareForNewSource,
-        insertSource: _insertSource
     };
 })();

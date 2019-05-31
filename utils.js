@@ -20,7 +20,7 @@ let copyIdMapToDb = async function(connection, idMap, table) {
     let copied = 0;
     let queryLogged = false;
     let mapEntries = idMap.entries();
-    let insertPrefix = `INSERT INTO ${global.beehive['idMapTable']}(table_name, source, destination) VALUES `;
+    let insertPrefix = `INSERT INTO ${global.beehive['idMapTable']}(table_name, source_id, destination_id) VALUES `;
     let query = null;
     try {
         while (temp > 0) {
