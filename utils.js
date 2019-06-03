@@ -8,12 +8,27 @@ if (config.batchSize === undefined) {
     config.batchSize = 500;
 };
 
-let updateATransactionStep = async function(connection, step) {
-    let query = 'INSERT INTO beehive_merge_progress (source, atomic_step, passed) VALUES (' +
-        `${stringValue(config.source.location)}, ${stringValue(step)}, 1)`;
+let updateATransactionStep = async function(connection, step, passed, movedRecords) {
+    if(passed === undefined) passed = 1;
+    let query = 'INSERT INTO beehive_merge_progress (source, atomic_step, passed'; +
+    if(movedRecords !== undefined && movedRecords !== null) {
+        query += ', moved_records) VALUES ' +
+            `(${stringValue(config.source.location)}, ${stringValue(step)}, ${passed}, ${movedRecords})`;
+    } else {
+        query += `) VALUES (${stringValue(config.source.location)}, ${stringValue(step)}, ${passed})`;
+    }
+
     await connection.query(query);
 };
 
+/**
+ * Copy the IDs (such as person_id) maps between source database records with destination database corresponding
+ * record to the database. These can later be loaded in a multi-transaction move in which case the move resumes
+ * from where the system stopped processing (mainly due to some exception)
+ * @param connection: Database connection where the map is stored (destination is used in practice)
+ * @param idMap: Native JS Map The table ID mappings to be copied (e.g. personMap,obsMap)
+ * @param table: String Name of the table corresponding to idMap to be copied.
+ */
 let copyIdMapToDb = async function(connection, idMap, table) {
     let start = 0;
     let temp = idMap.size;

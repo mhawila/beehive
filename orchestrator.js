@@ -49,12 +49,6 @@ async function orchestration() {
         srcConn = await connection(config.source);
         destConn = await connection(config.destination);
 
-        // Check for UUID collisions
-
-        // if(!dryRun) {
-        //
-        // }
-
         await destConn.query('START TRANSACTION');
         utils.logInfo(logTime(), ': Preparing destination database...');
         await prepare(srcConn,destConn, config);
@@ -125,11 +119,13 @@ async function orchestration() {
         }
 
         if(dryRun || (global.startingStep['atomic_step'] === 'obs'
-                                    && !utils.noMoreObsToMove(srcConn, global.startingStep['passed']))) {
+                                    && global.startingStep['passed'] == 0 )) {
             //obs
             // TODO: Handle chunk transactions when moving obs record (This is required as the obs table
             // tends to be very big.)
             await obsMover(srcConn, destConn);
+            await destConn.query('START TRANSACTION');
+            utils.logOk(`Done with moving obs here...`);
         }
         //gaac tables
         await gaacModuleTablesMover(srcConn, destConn);
@@ -139,6 +135,7 @@ async function orchestration() {
             utils.logOk(`Done...No database changes have been made!`)
         }
         else {
+            await utils.updateATransactionStep(destConn, 'post-obs');
             if(destConn) await destConn.query('COMMIT');
             utils.logOk(`Done...All Data from ${config.source.location} copied.`);
         }

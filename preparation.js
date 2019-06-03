@@ -118,18 +118,20 @@
 
     async function _createProgressTables(connection, source) {
         let progressTable = 'CREATE TABLE IF NOT EXISTS beehive_merge_progress(' +
-            'id INT(11) AUTO_INCREMENT PRIMARY KEY,' +
-            'source VARCHAR(50) NOT NULL,' +
-            'atomic_step VARCHAR(50) NOT NULL,' +
-            'passed INT(11),' +
-            'time_finished TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP' +
+                'id INT(11) AUTO_INCREMENT PRIMARY KEY,' +
+                'source VARCHAR(50) NOT NULL,' +
+                'atomic_step VARCHAR(50) NOT NULL,' +
+                'passed TINYINT,' +
+                'moved_records INT(11) DEFAULT NULL'
+                'time_finished TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP' +
             ')';
 
         let idMapTable = `CREATE TABLE IF NOT EXISTS ${ID_MAP_TABLE_PREFIX}${source}(` +
-            'table_name VARCHAR(50) NOT NULL, ' +
-            'source_id INT(11) NOT NULL, ' +
-            'destination_id INT(11) NOT NULL, ' +
-            'CONSTRAINT unique_map_id_mapping_per_table UNIQUE(table_name, source))';
+                'table_name VARCHAR(50) NOT NULL, ' +
+                'source_id INT(11) NOT NULL, ' +
+                'destination_id INT(11) NOT NULL, ' +
+                'CONSTRAINT unique_map_id_mapping_per_table UNIQUE(table_name, source)' +
+            ')';
 
         let tables = [
             progressTable,
