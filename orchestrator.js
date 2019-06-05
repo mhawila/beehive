@@ -54,7 +54,8 @@ async function orchestration() {
         await prepare(srcConn,destConn, config);
 
         if(dryRun || (global.startingStep['atomic_step'] === 'pre-obs'
-                                                        && !global.startingStep['passed'])) {
+                                                        && global.startingStep['passed'] == 0)) {
+            utils.logInfo('Performing step: pre-obs');
             utils.logInfo(logTime(), ': Checking for Orphaned Records');
             await integrityChecks(srcConn, config.source.openmrsDb);
 
@@ -118,18 +119,23 @@ async function orchestration() {
             }
         }
 
-        if(dryRun || (global.startingStep['atomic_step'] === 'obs'
-                                    && global.startingStep['passed'] == 0 )) {
+        if(dryRun || global.startingStep['atomic_step'] === 'pre-obs' ||
+            (global.startingStep['atomic_step'] === 'obs' && global.startingStep['passed'] == 0 )) {
             //obs
-            // TODO: Handle chunk transactions when moving obs record (This is required as the obs table
+            // Handle chunk transactions when moving obs record (This is required as the obs table
             // tends to be very big.)
+            utils.logInfo('Performing step: obs');
             await obsMover(srcConn, destConn);
-            await destConn.query('START TRANSACTION');
             utils.logOk(`Done with moving obs here...`);
+            utils.logInfo('Completed step: obs');
+            await destConn.query('START TRANSACTION');
         }
+
+        utils.logInfo('Performing step: post-obs');
         //gaac tables
         await gaacModuleTablesMover(srcConn, destConn);
 
+        utils.logInfo('Completed step: post-obs');
         if(dryRun) {
             await destConn.query('ROLLBACK');
             utils.logOk(`Done...No database changes have been made!`)

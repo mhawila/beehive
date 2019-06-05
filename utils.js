@@ -10,7 +10,7 @@ if (config.batchSize === undefined) {
 
 let updateATransactionStep = async function(connection, step, passed, movedRecords) {
     if(passed === undefined) passed = 1;
-    let query = 'INSERT INTO beehive_merge_progress (source, atomic_step, passed'; +
+    let query = 'INSERT INTO beehive_merge_progress (source, atomic_step, passed';
     if(movedRecords !== undefined && movedRecords !== null) {
         query += ', moved_records) VALUES ' +
             `(${stringValue(config.source.location)}, ${stringValue(step)}, ${passed}, ${movedRecords})`;

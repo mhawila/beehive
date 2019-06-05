@@ -179,7 +179,7 @@
     }
 
     async function __populateAMapFromDb(connection, source, tableName, mapName) {
-        let query = `SELECT * FROM ${ID_MAP_TABLE_PREFIX}${source} WHERE table_name = ${stringValue(tableName)}`;`
+        let query = `SELECT * FROM ${ID_MAP_TABLE_PREFIX}${source} WHERE table_name = ${stringValue(tableName)}`;
         let [idMappings] = await connection.query(query);
 
         if(idMappings.length > 0) {
