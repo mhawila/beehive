@@ -52,30 +52,25 @@
         let source = config.source.location;
         global.beehive['idMapTable'] = `${ID_MAP_TABLE_PREFIX}${source}`;
 
-        let check = `SHOW TABLES LIKE 'beehive_merge_source'`;
-        let [result] = await destConn.query(check);
-        if (result.length === 0) {
-            //Not created yet.
-            await _createSourceTable(destConn);
-        } else {
-            if (!global.dryRun) {
-                await _createProgressTables(destConn, source);
-                // check if source already exists.
-                let sourceExists = await _sourceAlreadyExists(destConn, source);
-                if (!sourceExists) {
-                    // Initial run
-                    await _insertSource(destConn, source);
+        await _createSourceTable(destConn);
+        await _createProgressTables(destConn, source);
+        // check if source already exists.
+        let sourceExists = await _sourceAlreadyExists(destConn, source);
+        if (!sourceExists) {
+            // Initial run
+            await _insertSource(destConn, source);
+        }
+        if (!global.dryRun) {
+            if(sourceExists) {
+                // Second or more run
+                // TODO: Populate the maps from persisted tables
+                let finalStep = await _findPreviousRunFinalStep(destConn, source);
+                if(finalStep['atomic_step'] === 'post-obs' && finalStep['passed']) {
+                    let error = `Location ${source} already processed`;
+                    throw new Error(error);
                 } else {
-                    // Second or more run
-                    // TODO: Populate the maps from persisted tables
-                    let finalStep = await _findPreviousRunFinalStep(destConn, source);
-                    if(finalStep['atomic_step'] === 'post-obs' && finalStep['passed']) {
-                        let error = `Location ${source} already processed`;
-                        throw new Error(error);
-                    } else {
-                        global.startingStep = finalStep;
-                        await _populateMapsFromPreviousRuns(destConn, source);
-                    }
+                    global.startingStep = finalStep;
+                    await _populateMapsFromPreviousRuns(destConn, source);
                 }
             }
         }
@@ -118,11 +113,11 @@
 
     async function _createProgressTables(connection, source) {
         let progressTable = 'CREATE TABLE IF NOT EXISTS beehive_merge_progress(' +
-                'id INT(11) AUTO_INCREMENT PRIMARY KEY,' +
-                'source VARCHAR(50) NOT NULL,' +
-                'atomic_step VARCHAR(50) NOT NULL,' +
-                'passed TINYINT,' +
-                'moved_records INT(11) DEFAULT NULL'
+                'id INT(11) AUTO_INCREMENT PRIMARY KEY, ' +
+                'source VARCHAR(50) NOT NULL, ' +
+                'atomic_step VARCHAR(50) NOT NULL, ' +
+                'passed TINYINT, ' +
+                'moved_records INT(11) DEFAULT NULL, ' +
                 'time_finished TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP' +
             ')';
 
@@ -130,7 +125,7 @@
                 'table_name VARCHAR(50) NOT NULL, ' +
                 'source_id INT(11) NOT NULL, ' +
                 'destination_id INT(11) NOT NULL, ' +
-                'CONSTRAINT unique_map_id_mapping_per_table UNIQUE(table_name, source)' +
+                'CONSTRAINT unique_map_id_mapping_per_table UNIQUE(table_name, source_id)' +
             ')';
 
         let tables = [

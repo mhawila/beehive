@@ -49,13 +49,14 @@ async function orchestration() {
         srcConn = await connection(config.source);
         destConn = await connection(config.destination);
 
+        await destConn.query('SET autocommit = 0');
         await destConn.query('START TRANSACTION');
         utils.logInfo(logTime(), ': Preparing destination database...');
         await prepare(srcConn,destConn, config);
 
         if(dryRun || (global.startingStep['atomic_step'] === 'pre-obs'
                                                         && global.startingStep['passed'] == 0)) {
-            utils.logInfo('Performing step: pre-obs');
+            utils.logInfo(logTime(), ': Performing step: pre-obs');
             utils.logInfo(logTime(), ': Checking for Orphaned Records');
             await integrityChecks(srcConn, config.source.openmrsDb);
 
@@ -73,12 +74,14 @@ async function orchestration() {
                 await utils.copyIdMapToDb(destConn, global.beehive.userMap, 'users');
             }
 
-            utils.logInfo('Consolidating locations...');
+            utils.logInfo(logTime(), ': Consolidating locations...');
             let movedLocations = await locationsMover(srcConn, destConn);
 
             // Copy Location ID map to the database.
-            await utils.copyIdMapToDb(destConn, global.beehive.locationMap, 'location');
-            utils.logOk(`Ok...${movedLocations} locations moved.`);
+            if(!dryRun) {
+                await utils.copyIdMapToDb(destConn, global.beehive.locationMap, 'location');
+            }
+            utils.logOk(logTime(), `: Ok...${movedLocations} locations moved.`);
 
             //patients & identifiers
             await patientsMover(srcConn, destConn);
@@ -111,6 +114,7 @@ async function orchestration() {
                 await utils.copyIdMapToDb(destConn, global.beehive.encounterMap, 'encounter');
 
                 // Record and Commit the transaction (first step)
+                utils.logDebug(logTime(), ': Committing pre-obs');
                 await utils.updateATransactionStep(destConn, 'pre-obs');
                 await destConn.query('COMMIT');
 
@@ -124,36 +128,42 @@ async function orchestration() {
             //obs
             // Handle chunk transactions when moving obs record (This is required as the obs table
             // tends to be very big.)
-            utils.logInfo('Performing step: obs');
+            utils.logInfo(logTime(), ': Performing step: obs');
             await obsMover(srcConn, destConn);
-            utils.logOk(`Done with moving obs here...`);
-            utils.logInfo('Completed step: obs');
-            await destConn.query('START TRANSACTION');
+            utils.logOk(logTime(), ': Done with moving obs here...');
+            utils.logInfo(logTime(), ': Completed step: obs');
+
+            if(!dryRun) {
+                await destConn.query('START TRANSACTION');
+            }
         }
 
-        utils.logInfo('Performing step: post-obs');
+        utils.logInfo(logTime(), ': Performing step: post-obs');
         //gaac tables
         await gaacModuleTablesMover(srcConn, destConn);
 
-        utils.logInfo('Completed step: post-obs');
+        utils.logInfo(logTime(), ': Completed step: post-obs');
         if(dryRun) {
             await destConn.query('ROLLBACK');
-            utils.logOk(`Done...No database changes have been made!`)
+            utils.logOk(logTime(), `: Dry run done, no database changes have been made!`);
         }
         else {
             await utils.updateATransactionStep(destConn, 'post-obs');
             if(destConn) await destConn.query('COMMIT');
-            utils.logOk(`Done...All Data from ${config.source.location} copied.`);
+            utils.logOk(logTime(), `: Done...All Data from ${config.source.location} copied.`);
         }
     } catch (ex) {
         if(destConn) await destConn.query('ROLLBACK');
         utils.logError(ex);
-        utils.logInfo('Aborting...Rolled back, no data has been moved');
+        utils.logInfo(logTime(), ': Aborting...Rolled back, no data has been moved');
     } finally {
         if (srcConn) await srcConn.end();
-        if (destConn) await destConn.end();
+        if (destConn) {
+            await destConn.query('SET autocommit = 1');
+            await destConn.end();
+        }
         let timeElapsed = (Date.now() - startTime);
-        utils.logInfo(`Time elapsed: ${timeElapsed} ms`);
+        utils.logInfo(logTime(), `: Time elapsed: ${utils.getSimpleTimeString(timeElapsed)} (${timeElapsed} ms)`);
     }
 }
 

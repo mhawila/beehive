@@ -61,17 +61,17 @@ let copyIdMapToDb = async function(connection, idMap, table) {
             query = insertPrefix + toBeinserted;
 
             if (!queryLogged) {
-                logDebug(`${tableName} insert statement:\n`, shortenInsertStatement(q));
+                logDebug(`${table} insert statement:\n`, shortenInsertStatement(query));
                 queryLogged = true;
             }
 
-            [r] = await connection.query(query);
+            let [r] = await connection.query(query);
             copied += r.affectedRows;
         }
         return copied;
     }
     catch(ex) {
-        logError(`An error occured when copying ID map for table ${table} records`);
+        logError(`An error occured when copying ID map for table ${table}`);
         if(query) {
             logError('Insert statement during error');
             logError(query);
@@ -288,35 +288,6 @@ let moveAllTableRecords = async function(srcConn, destConn, tableName, orderColu
     }
 };
 
-/**
- * persistIdMapToDatabase persist the passed id map to the database for future use
- * @param connection Usually a destination connection.
- * @param table Table name whose source -> destination map are persisted.
- * @param idMap The map containing the source->destination id maps.
- */
-let persistIdMapToDatabase = async (connection, table, idMap) => {
-    let insert = `INSERT INTO ${global.beehive['idMapTable']} ` +
-        '(table_name, source, destination) VALUES ';
-
-    let toBeinserted = '';
-    idMap.forEach((destinationId, sourceId) => {
-        if (toBeinserted.length > 1) {
-            toBeinserted += ',';
-        }
-        toBeinserted += `('${table}', ${sourceId}, ${destinationId})`;
-    });
-
-    let sql = insert + toBeinserted;
-    try {
-        await connection.query('BEGIN');
-        await connection.query(sql);
-    } catch (ex) {
-        logError('Insert statement during error');
-        logError(shortenInsertStatement(sql));
-        throw ex;
-    }
-};
-
 let logError = function(...args) {
     args.splice(0, 0, "\x1b[31m");
     console.error.apply(null, args);
@@ -357,7 +328,61 @@ async function personIdsToexclude(connection) {
     return ids.map(id => id['person_id']);
 }
 
+/**
+ * Return a string representation of time that is split time in hours, mins, sec and ms.
+ * @param ms: Integer time elapsed in milliseconds.
+ * @return string: a printable representation of passed milliseconds in equivalent hrs, mins, secs, and ms.
+ */
+const getSimpleTimeString = (ms) => {
+    if(ms >= 1000) {
+        let hours = 0;
+        let mins = 0;
+        let min_less60 = 0;
+        let secs_less60 = 0;
+        let secs = Math.floor(ms/1000);
+        let ms_less1000 = ms % 1000;
+
+        if(secs >= 60) {
+            mins = Math.floor(secs/60);
+            secs_less60 = secs % 60;
+
+            if(mins >= 60) {
+                hours = Math.floor(mins/60);
+                min_less60 = mins % 60;
+            }
+        }
+
+        let str = '';
+        if(hours > 0) {
+            str += `${hours} hour${ hours > 1 ? 's' : '' }`;
+
+            if(min_less60 > 0) {
+                str += `, ${min_less60} min${ min_less60 > 1 ? 's' : '' }`;
+            }
+
+            if(secs_less60 > 0) {
+                str += `, ${secs_less60} sec${ secs_less60 > 1 ? 's' : '' }`;
+            }
+        } else if(mins > 0) {
+            str += `${mins} min${ mins > 1 ? 's' : '' }`;
+            if(secs_less60 > 0) {
+                str += `, ${secs_less60} sec${ secs_less60 > 1 ? 's' : '' }`;
+            }
+        } else {
+            str += `${secs} sec${ secs > 1 ? 's' : '' }`;
+        }
+        if(ms_less1000 > 0) {
+            str += `, ${ms_less1000} ms`;
+        }
+
+        return str;
+    } else {
+        return `${ms} ms`;
+    }
+};
+
 module.exports = {
+    getSimpleTimeString: getSimpleTimeString,
     copyIdMapToDb: copyIdMapToDb,
     updateATransactionStep: updateATransactionStep,
     getNextAutoIncrementId: getNextAutoIncrementId,
@@ -374,5 +399,4 @@ module.exports = {
     shortenInsert: shortenInsertStatement,
     consolidateRecords: consolidateTableRecords,
     personIdsToexclude: personIdsToexclude,
-    persistIdMapToDatabase: persistIdMapToDatabase
 };

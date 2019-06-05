@@ -3,6 +3,13 @@ let strValue = utils.stringValue;
 let moveAllTableRecords = utils.moveAllTableRecords;
 
 let beehive = global.beehive;
+
+const config = require('./config');
+
+if (config.batchSize === undefined) {
+    config.batchSize = 500;
+};
+
 let obsWithTheirGroupNotUpdated = new Map();
 let obsWithPreviousNotUpdated = new Map();
 const MIN_COUNT_FOR_OBS_TRANSACTION = 500000;
@@ -74,7 +81,7 @@ async function moveObs(srcConn, destConn) {
                   prepareObsInsert);
 }
 
-**
+/**
  * Utility function that moves all obs records in config.batchSize batches
  * @param srcConn
  * @param destConn
@@ -84,8 +91,8 @@ async function moveObs(srcConn, destConn) {
     // Get the count to be pushed
     let tableName = 'obs';
     let orderColumn = 'date_created';
-    let countToMove = await getCount(srcConn, tableName, condition);
-    let nextAutoIncr = await getNextAutoIncrementId(destConn, tableName);
+    let countToMove = await utils.getCount(srcConn, tableName, condition);
+    let nextAutoIncr = await utils.getNextAutoIncrementId(destConn, tableName);
 
     let fetchQuery = `SELECT * FROM ${tableName} `;
     if(condition) {
@@ -123,7 +130,7 @@ async function moveObs(srcConn, destConn) {
             [q, nextId] = prepareObsInsert(r, nextAutoIncr);
 
             if (!queryLogged) {
-                logDebug(`${tableName} insert statement:\n`, shortenInsertStatement(q));
+                utils.logDebug(`${tableName} insert statement:\n`, utils.shortenInsert(q));
                 queryLogged = true;
             }
 
@@ -183,11 +190,11 @@ async function moveObs(srcConn, destConn) {
             // ROLLBACK
             await destConn.query('ROLLBACK');
         }
-        logError(`An error occured when moving ${tableName} records`);
+        utils.logError(`An error occured when moving ${tableName} records`);
         if(q) {
-            logError('Select statement:', query);
-            logError('Insert statement during error');
-            logError(q);
+            utils.logError('Select statement:', query);
+            utils.logError('Insert statement during error');
+            utils.logError(q);
         }
         throw ex;
     }
