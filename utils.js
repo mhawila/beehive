@@ -30,7 +30,6 @@ let updateATransactionStep = async function(connection, step, passed, movedRecor
  * @param table: String Name of the table corresponding to idMap to be copied.
  */
 let copyIdMapToDb = async function(connection, idMap, table) {
-    let start = 0;
     let temp = idMap.size;
     let copied = 0;
     let queryLogged = false;
@@ -49,19 +48,20 @@ let copyIdMapToDb = async function(connection, idMap, table) {
                 temp = 0;
             }
 
-            for(;start < limit; start++) {
+            for(let x=0; x < limit; x++) {
                 if (toBeinserted.length > 1) {
                     toBeinserted += ',';
                 }
                 let entry = mapEntries.next();
-                if(!entry.done) {
-                    toBeinserted = `(${stringValue(table)}, ${entry.value[0]}, ${entry.value[1]})`;
+                if(entry.done) {
+                    break;
                 }
+                toBeinserted += `(${stringValue(table)}, ${entry.value[0]}, ${entry.value[1]})`;
             }
             query = insertPrefix + toBeinserted;
 
             if (!queryLogged) {
-                logDebug(`${table} insert statement:\n`, shortenInsertStatement(query));
+                logDebug(`${global.beehive['idMapTable']} insert statement:\n`, shortenInsertStatement(query));
                 queryLogged = true;
             }
 

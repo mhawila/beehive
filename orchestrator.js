@@ -54,6 +54,15 @@ async function orchestration() {
         utils.logInfo(logTime(), ': Preparing destination database...');
         await prepare(srcConn,destConn, config);
 
+        if(global.startingStep['atomic_step'] === 'pre-obs' && global.startingStep['passed'] == 0) {
+            utils.logInfo(`${logTime()} : Starting step ---> ${global.startingStep['atomic_step']}`);
+        } else if((global.startingStep['atomic_step'] === 'pre-obs' && global.startingStep['passed'] == 1)
+            || (global.startingStep['atomic_step'] === 'obs' && global.startingStep['passed'] == 0)) {
+            utils.logInfo(`${logTime()} : Starting step ---> obs`);
+        } else if(global.startingStep['atomic_step'] === 'obs' && global.startingStep['passed'] == 1) {
+            utils.logInfo(`${logTime()} : Starting step ---> post-obs`);
+        }
+
         if(dryRun || (global.startingStep['atomic_step'] === 'pre-obs'
                                                         && global.startingStep['passed'] == 0)) {
             utils.logInfo(logTime(), ': Performing step: pre-obs');
@@ -68,6 +77,7 @@ async function orchestration() {
 
             if(!dryRun) {
                 // Copy Person & Users ID maps to the database.
+                utils.logDebug(logTime(), ': Copying person & user tables id maps to the database');
                 await utils.copyIdMapToDb(destConn, global.beehive.personMap, 'person');
                 await utils.copyIdMapToDb(destConn, global.beehive.personAttributeTypeMap, 'person_attribute_type');
                 await utils.copyIdMapToDb(destConn, global.beehive.relationshipTypeMap, 'relationship_type');
@@ -79,6 +89,7 @@ async function orchestration() {
 
             // Copy Location ID map to the database.
             if(!dryRun) {
+                utils.logDebug(logTime(), ': Copying location id map to the database');
                 await utils.copyIdMapToDb(destConn, global.beehive.locationMap, 'location');
             }
             utils.logOk(logTime(), `: Ok...${movedLocations} locations moved.`);
@@ -86,6 +97,7 @@ async function orchestration() {
             //patients & identifiers
             await patientsMover(srcConn, destConn);
             if(!dryRun) {
+                utils.logDebug(logTime(), ': Copying patient_identifier_type id map to the database');
                 await utils.copyIdMapToDb(destConn, global.beehive.identifierTypeMap, 'patient_identifier_type');
             }
 
@@ -95,6 +107,7 @@ async function orchestration() {
             //providers & provider attributes
             await providersMover(srcConn, destConn);
             if(!dryRun) {
+                utils.logDebug(logTime(), ': Copying provider & provider_attribute_type id maps to the database');
                 await utils.copyIdMapToDb(destConn, global.beehive.providerAttributeTypeMap, 'provider_attribute_type');
                 await utils.copyIdMapToDb(destConn, global.beehive.providerMap, 'provider');
             }
@@ -102,6 +115,7 @@ async function orchestration() {
             //visits & visit types
             await visitsMover(srcConn, destConn);
             if(!dryRun) {
+                utils.logDebug(logTime(), ': Copying visit & visit_type id maps to the database');
                 await utils.copyIdMapToDb(destConn, global.beehive.visitTypeMap, 'visit_type');
                 await utils.copyIdMapToDb(destConn, global.beehive.visitMap, 'visit');
             }
@@ -109,12 +123,13 @@ async function orchestration() {
             //encounters, encounter_types, encounter_roles & encounter_providers
             await encounterMover(srcConn, destConn);
             if(!dryRun) {
+                utils.logDebug(logTime(), ': Copying encounter, encounter_role/type id maps to the database');
                 await utils.copyIdMapToDb(destConn, global.beehive.encounterTypeMap, 'encounter_type');
                 await utils.copyIdMapToDb(destConn, global.beehive.encounterRoleMap, 'encounter_role');
                 await utils.copyIdMapToDb(destConn, global.beehive.encounterMap, 'encounter');
 
                 // Record and Commit the transaction (first step)
-                utils.logDebug(logTime(), ': Committing pre-obs');
+                utils.logInfo(logTime(), ': Committing pre-obs');
                 await utils.updateATransactionStep(destConn, 'pre-obs');
                 await destConn.query('COMMIT');
 
@@ -155,7 +170,8 @@ async function orchestration() {
     } catch (ex) {
         if(destConn) await destConn.query('ROLLBACK');
         utils.logError(ex);
-        utils.logInfo(logTime(), ': Aborting...Rolled back, no data has been moved');
+        utils.logInfo(logTime(), ': Aborting...Rolling back the current transaction');
+        utils.logInfo('Data partially moved: Check the progress table to determine the step reached.')
     } finally {
         if (srcConn) await srcConn.end();
         if (destConn) {

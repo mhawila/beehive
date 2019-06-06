@@ -106,8 +106,8 @@ async function moveObs(srcConn, destConn) {
     let query = null;
     let [q, nextId] = [null, -1];
     try {
-        if(!global.dryRun && countToMove >= MIN_COUNT_FOR_OBS_TRANSACTION) {
-            utils.debug('Moving obs in stepwise transactions');
+        if(!global.dryRun) {
+            utils.logInfo(utils.logTime(), ': Moving obs in transaction');
 
             if(global.startingStep['atomic_step'] === 'obs' && global.startingStep['moved_records'] > 0) {
                 moved = start = global.startingStep['moved_records'];
@@ -154,7 +154,7 @@ async function moveObs(srcConn, destConn) {
                         await utils.updateATransactionStep(destConn, 'obs', 0, moved);
                         await destConn.query('COMMIT');
 
-                        utils.debug('obs transaction committed, obs moved --> ', moved);
+                        utils.logDebug(utils.logTime(), ': obs transaction committed, obs moved --> ', moved);
                         await destConn.query('START TRANSACTION');
                     }
                 }
@@ -164,30 +164,40 @@ async function moveObs(srcConn, destConn) {
         }
 
         // Deal with the final batch for transaction-wise moves.
-        if(!global.dryRun && countToMove >= MIN_COUNT_FOR_OBS_TRANSACTION) {
-            if(moved%OBS_TRANSACTION_BATCH_SIZE > 0) {
+        if(!global.dryRun) {
+            if(TEMP_OBS_MAP.size > 0) {
                 await utils.copyIdMapToDb(destConn, TEMP_OBS_MAP, 'obs');
                 await utils.updateATransactionStep(destConn, 'obs', 1, moved);
 
                 await destConn.query('COMMIT');
 
-                utils.debug('obs transaction committed, obs moved --> ', moved);
+                utils.logDebug(utils.logTime(), ': obs transaction committed, obs moved --> ', moved);
             }
         }
-
+        utils.logInfo(utils.logTime(), ': Total obs records moved --> ', moved);
         // Copy to the global map fo use later. This works for both the final batch if it is a transaction-wise
         // move or otherwise.
         for(let obsMapItem of TEMP_OBS_MAP[Symbol.iterator]()) {
             beehive.obsMap.set(obsMapItem[0], obsMapItem[1]);
         }
 
-        // Clear the temp map making it ready for next transaction.
+        // Clear the temp map free space.
         TEMP_OBS_MAP.clear();
         return moved;
     }
     catch(ex) {
-        if(!global.dryRun && countToMove > MIN_COUNT_FOR_OBS_TRANSACTION) {
+        if(!global.dryRun) {
             // ROLLBACK
+            let committedObs = 0;
+            if(countToMove >= MIN_COUNT_FOR_OBS_TRANSACTION) {
+                if(moved%OBS_TRANSACTION_BATCH_SIZE > 0) {
+                    committedObs = moved - moved%OBS_TRANSACTION_BATCH_SIZE;
+                } else {
+                    committedObs = moved - OBS_TRANSACTION_BATCH_SIZE;
+                }
+            }
+            utils.logDebug('Number of moved committed obs during error: ', committedObs);
+            utils.logInfo(utils.logTime(), ': Rolling back current obs move transaction because of error');
             await destConn.query('ROLLBACK');
         }
         utils.logError(`An error occured when moving ${tableName} records`);

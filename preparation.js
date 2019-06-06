@@ -67,8 +67,11 @@
                 let finalStep = await _findPreviousRunFinalStep(destConn, source);
                 if(finalStep['atomic_step'] === 'post-obs' && finalStep['passed']) {
                     let error = `Location ${source} already processed`;
-                    throw new Error(error);
+                    utils.logInfo(`${utils.logTime()}: Source location ${source} already processed completely`);
+                    utils.logInfo('Terminating the application now...');
+                    process.exit(0);
                 } else {
+                    utils.logDebug(utils.logTime(), ': Populating id maps');
                     global.startingStep = finalStep;
                     await _populateMapsFromPreviousRuns(destConn, source);
                 }
@@ -167,14 +170,14 @@
     }
 
     async function _populateMapsFromPreviousRuns(connection, source) {
-        let entries = Object.entries(ID_MAP_TABLE_PREFIX);
-        for(let [tableName, mapName] of Object.entries(ID_MAP_TABLE_PREFIX)) {
+        for(let [tableName, mapName] of Object.entries(BEEHIVE_MAPS_NAMES)) {
             await __populateAMapFromDb(connection, source, tableName, mapName);
         }
     }
 
     async function __populateAMapFromDb(connection, source, tableName, mapName) {
         let query = `SELECT * FROM ${ID_MAP_TABLE_PREFIX}${source} WHERE table_name = ${stringValue(tableName)}`;
+        utils.logDebug(`ID mapping query: ${query}`);
         let [idMappings] = await connection.query(query);
 
         if(idMappings.length > 0) {
