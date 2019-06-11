@@ -1,4 +1,4 @@
-# beehive
+# Beehive Application
 
 ## Introduction
 This nodejs application merges two instances of OpenMRS databases into one. It
@@ -86,6 +86,10 @@ Clone the code from github.
 
 `$ git clone https://github.com/mhawila/beehive.git`
 
+Switch to branch multi-transcation
+
+`$ git checkout multi-transaction`
+
 Change into the project directory, and create a JSON configuration file called
 *config.json* putting the following content.
 ```javascript
@@ -144,3 +148,18 @@ memory allocated to it.
 ```shell
 $ node --harmony --max_old_space_size=2048 orchestrator.js
 ```
+
+## Multi Transaction Approach (Purely Academic)
+**Note:** _The user of this application does **NOT** to understand this section in order to use it._
+
+Implemented to allow the application to start where it left off in case of an error. This comes handy when
+moving huge obs tables (to the tune of 5+ million records).
+
+Three tables are created in the destination database to facilitate this. The tables and their purposes are as
+shown below.
+1. *beehive_merge_progress*: This keeps track of the atomic step reached for a particular _source_ being merged to destination.
+2. *beehive_merge_idmap_*{source}: There will be one for each source to simplify handling and deleting if necessary. E.g. for a source named _namaccura_ a table named _beehive_merge_idmap_namaccura_ will be added.
+
+There are three atomic steps namely *_pre-obs_*, *_obs_*, and *_post-obs_*. The steps are performed in that order with both pre-obs and post-obs done in one transaction each. The obs step on the other hand can be done in one or multiple transaction depending on the size of the obs table. For a source with an obs table with records equal to or more than a particular number (default is 500,000) more than one transaction is used with each used to move a predefined number of records (default being 250,000).
+
+The _beehive_merge_progress_ table in case of a multi-transaction obs step is used also to keep track of the number of obs moved within each transaction. That way, the application can figure out where to start in case there is a need to re-run the application after encountering an error.
