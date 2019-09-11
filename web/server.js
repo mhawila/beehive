@@ -2,6 +2,7 @@
 const fs = require('fs')
 const express = require('express')
 const bodyParser = require('body-parser')
+const orchestrator = require('../orchestration')
 
 const port = 3000
 const CONFIG_DIR = '../';
@@ -32,6 +33,12 @@ app.route('/configuration')
         console.log('Configuration:', req.body)
         res.json({status: 'success'})
     })
+
+app.get('/running', (req, res) => {
+    console.log('Query string => ', req.query)
+    if(req.query.dryRun)
+    res.end('done')
+})
 
 app.get('/', (req, res) => res.sendFile(__dirname + '/index.html'))
 app.listen(port, () => console.log(`Beehive listening on port ${port}...`))

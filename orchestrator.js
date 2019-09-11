@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 'use strict';
 const connection = require('./connection').connection;
 const preparation = require('./preparation');
@@ -187,3 +188,7 @@ module.exports = orchestration; // In case one needs to require it.
 
 // Run
 orchestration();
+=======
+// Run the process.
+require('./orchestration')();
+>>>>>>> Refactored orchestration to separate declaration from call
