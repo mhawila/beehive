@@ -289,23 +289,56 @@ let moveAllTableRecords = async function(srcConn, destConn, tableName, orderColu
 };
 
 let logError = function(...args) {
+    args.splice(0,0, `[ERROR ${logTime()}] -- `);
+    if(global.progressMessageQueue !== undefined && global.progressMessageQueue !== null) {
+        global.progressMessageQueue.enqueue({
+            category: 'ERROR',
+            message: args.map(arg => {
+                if(arg instanceof Error) {
+                    return arg.stack;
+                }
+                return arg;
+            })
+        });
+    }
     args.splice(0, 0, "\x1b[31m");
     console.error.apply(null, args);
 }
 
 let logOk = function(...args) {
+    args.splice(0,0, `[OK ${logTime()}] -- `);
+    if(global.progressMessageQueue !== undefined && global.progressMessageQueue !== null) {
+        global.progressMessageQueue.enqueue({
+            category: 'OK',
+            message: args.join(" ")
+        });
+    }
     args.splice(0, 0, "\x1b[32m");
     console.log.apply(null, args);
 }
 
 let logDebug = function(...args) {
-    args.splice(0, 0, "\x1b[33m");
+    args.splice(0,0, `[DEBUG ${logTime()}] -- `);
     if (config.debug) {
+        if(global.progressMessageQueue !== undefined && global.progressMessageQueue !== null) {
+            global.progressMessageQueue.enqueue({
+                category: 'DEBUG',
+                message: args.join(" ")
+            });
+        }
+        args.splice(0, 0, "\x1b[33m");
         console.log.apply(null, args);
     }
 }
 
 let logInfo = function(...args) {
+    args.splice(0,0, `[INFO ${logTime()}] -- `);
+    if(global.progressMessageQueue !== undefined && global.progressMessageQueue !== null) {
+        global.progressMessageQueue.enqueue({
+            category: 'INFO',
+            message: args.join(" ")
+        })
+    }
     args.splice(0, 0, "\x1b[37m");
     console.log.apply(null, args);
 }

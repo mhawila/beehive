@@ -11,94 +11,101 @@
             background: green;
             color: white;
         }
+
+        .scrollable-panel-body {
+            min-height: 200px;
+            max-height: 1000px;
+            overflow-y: scroll;
+        }
     </style>
 </head>
 
 <body>
     <div class="container">
         <div class="jumbotron">
-            <h2>Beehive Application</h2>
+            <h2>Beehive Merging Application</h2>
         </div>
-        <!-- <div class="row">
-            <div style="{align:center}">Database Connection Configuration</div>
+        <span id="no-configuration" style="display:none; text-color:red">No Configuration Yet</span>
+
+        <div id="configuration-save-success" class="alert alert-success alert-dismissable" style="display:none;">
+            <a href="#" class="close" data-dismiss="alert" aria-label="close">×</a>
+            <strong>Configuration Updated successfully!</strong>
         </div>
-        <div class="row">
-            <div class="col-md-4">&nbsp;</div>
-            <div class="col-md-4">Source Database</div>
-            <div class="col-md-4">Destination Database</div>
-        </div> -->
-    <span id="no-configuration" style="display:none; text-color:red">No Configuration Yet</span>
 
-    <div id="configuration-save-success" class="alert alert-success alert-dismissable" style="display:none;">
-        <a href="#" class="close" data-dismiss="alert" aria-label="close">×</a>
-        <strong>Configuration Updated successfully!</strong>
-    </div>
+        <div id="configuration-save-error" class="alert alert-danger alert-dismissable" style="display:none;">
+            <a href="#" class="close" data-dismiss="alert" aria-label="close">×</a>
+            <strong>Oops.. Sorry something went wrong!</strong>
+        </div>
 
-    <div id="configuration-save-error" class="alert alert-danger alert-dismissable" style="display:none;">
-        <a href="#" class="close" data-dismiss="alert" aria-label="close">×</a>
-        <strong>Oops.. Sorry something went wrong!</strong>
-    </div>
-
-    <form id="configuration-form">
-        <table class="table table-bordered table-striped">
-            <thead>
-                <tr>
-        			<th colspan="3" class="heading">DATABASE CONFIGURATION</th>
-        		</tr>
-        		<tr>
-        			<th>&nbsp;</th>
-        			<th>Source Database</th>
-        			<th>Destination Database</th>
-        		</tr>
-            </thead>
-        	<tbody>
-        		<tr>
-        			<th>Host</th>
-        			<td><input type="text" class="configuration-form" id="source-host" name="source_host" disabled/></td>
-        			<td><input type="text" class="configuration-form" id="destination-host" name="destination_host" disabled/></td>
-        		</tr>
-        		<tr>
-        			<th>Username</th>
-        			<td><input type="text" class="configuration-form" id="source-username" name="source_username" disabled/></td>
-        			<td><input type="text" class="configuration-form" id="destination-username" name="destination_username" disabled/></td>
-        		</tr>
-        		<tr>
-        			<th>Password</th>
-        			<td><input type="text" class="configuration-form" id="source-password" name="source_password" disabled/></td>
-        			<td><input type="text" class="configuration-form" id="destination-password" name="destination_password" disabled/></td>
-        		</tr>
-        		<tr>
-        			<th>Openmrs DB name</th>
-        			<td><input type="text" class="configuration-form" id="source-openmrs-db" name="source_openmrs_db" disabled/></td>
-        			<td><input type="text" class="configuration-form" id="destination-openmrs-db" name="destination_openmrs_db" disabled/></td>
-        		</tr>
-        		<tr>
-        			<th colspan="3" class="heading">OTHER CONFIGURATIONS</th>
-        		</tr>
-                <tr>
-                    <th>Source Location</th>
-                    <td colspan="2"><input type="text" class="configuration-form" id="source-location" name="source_location" disabled/></td>
-                </tr>
-        		<tr>
-        			<th>Batch Size</th>
-        			<td colspan="2"><input type="number" class="configuration-form" id="batch-size" name="batch_size" disabled/></td>
-        		</tr>
-        		<tr>
-        			<th>Generate New UUIDs</th>
-        			<td colspan="2"><input type="checkbox" class="configuration-form" id="generate-new-uuid" name="generate_new_uuid" disabled/></td>
-        		</tr>
-        		<tr>
-        			<th>Debug</th>
-        			<td colspan="2"><input type="checkbox" class="configuration-form" id="debug" name="debug" disabled/></td>
-        		</tr>
-        		<tr>
-        			<th>Persist</th>
-        			<td colspan="2"><input type="checkbox" class="configuration-form" id="persist" name="persist" disabled/></td>
-        		</tr>
-        	</tbody>
-        </table>
-        <input type="button" class="btn btn-default" id="configuration-button" value="Edit Configuration"/>
-    </form>
+        <form id="configuration-form">
+            <table class="table table-bordered table-striped">
+                <thead>
+                    <tr>
+            			<th colspan="3" class="heading">DATABASE CONFIGURATION</th>
+            		</tr>
+            		<tr>
+            			<th>&nbsp;</th>
+            			<th>Source Database</th>
+            			<th>Destination Database</th>
+            		</tr>
+                </thead>
+            	<tbody>
+            		<tr>
+            			<th>Host</th>
+            			<td><input type="text" class="configuration-form" id="source-host" name="source_host" disabled/></td>
+            			<td><input type="text" class="configuration-form" id="destination-host" name="destination_host" disabled/></td>
+            		</tr>
+            		<tr>
+            			<th>Username</th>
+            			<td><input type="text" class="configuration-form" id="source-username" name="source_username" disabled/></td>
+            			<td><input type="text" class="configuration-form" id="destination-username" name="destination_username" disabled/></td>
+            		</tr>
+            		<tr>
+            			<th>Password</th>
+            			<td><input type="text" class="configuration-form" id="source-password" name="source_password" disabled/></td>
+            			<td><input type="text" class="configuration-form" id="destination-password" name="destination_password" disabled/></td>
+            		</tr>
+            		<tr>
+            			<th>Openmrs DB name</th>
+            			<td><input type="text" class="configuration-form" id="source-openmrs-db" name="source_openmrs_db" disabled/></td>
+            			<td><input type="text" class="configuration-form" id="destination-openmrs-db" name="destination_openmrs_db" disabled/></td>
+            		</tr>
+            		<tr>
+            			<th colspan="3" class="heading">OTHER CONFIGURATIONS</th>
+            		</tr>
+                    <tr>
+                        <th>Source Location</th>
+                        <td colspan="2"><input type="text" class="configuration-form" id="source-location" name="source_location" disabled/></td>
+                    </tr>
+            		<tr>
+            			<th>Batch Size</th>
+            			<td colspan="2"><input type="number" class="configuration-form" id="batch-size" name="batch_size" disabled/></td>
+            		</tr>
+            		<tr>
+            			<th>Generate New UUIDs</th>
+            			<td colspan="2"><input type="checkbox" class="configuration-form" id="generate-new-uuid" name="generate_new_uuid" disabled/></td>
+            		</tr>
+            		<tr>
+            			<th>Debug</th>
+            			<td colspan="2"><input type="checkbox" class="configuration-form" id="debug" name="debug" disabled/></td>
+            		</tr>
+            		<tr>
+            			<th>Persist</th>
+            			<td colspan="2"><input type="checkbox" class="configuration-form" id="persist" name="persist" disabled/></td>
+            		</tr>
+            	</tbody>
+            </table>
+            <input type="button" class="btn btn-default" id="configuration-button" value="Edit Configuration"/>
+            <input type="button" class="btn btn-default" id="dry-run-button" value="Merge - Dry run"/>
+            <input type="button" class="btn btn-warning" id="run-button" value="Merge"/>
+        </form>
+        <div class="panel panel-success" style="display:none;margin-top:10px" id="merge-logs-panel">
+            <div class="panel-heading">
+                <h4 class="panel-title">Merge logs...</h4>
+            </div>
+            <div class="panel-body scrollable-panel-body" id="socket" style="background:black;">
+            </div>
+        </div>
     </div>
 </body>
 <script
@@ -107,6 +114,7 @@
       crossorigin="anonymous"></script>
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
 <script>
+    var MERGE_WEB_SOCKET = null;
     function getBasePath() {
         return window.location.protocol + "//" + window.location.host + "/"
     }
@@ -210,9 +218,51 @@
                     button.addClass('btn-default')
                     button.val('Edit Configuration')
                     $('#configuration-save-success').css('display', '')
+                },
+                error: function(error) {
+                    $('#configuration-save-error').css('display', '')
                 }
             })
         }
+    })
+
+    $('#dry-run-button').click(function() {
+        var sock = $('#socket')
+        // clear logs if any.
+        sock.html('')
+
+        var log = function(m) {
+            try {
+                var data = JSON.parse(m);
+                var color = 'color:';
+                if(data.category) {
+                    switch(data.category) {
+                        case 'ERROR': color += 'red;'; break;
+                        case 'OK': color += 'green;'; break;
+                        case 'DEBUG': color += 'yellow;'; break;
+                        default: color += 'white;';
+                    }
+                }
+                var li = $('<li style="' + color + '">').html(data.message);
+            } catch(e) {
+                var li = $('<li>').html(new Date().toISOString()+ ' ' + m)
+            }
+
+            $('#socket').append(li);
+        }
+
+        log('Opening socket connection...')
+        $('#merge-logs-panel').css('display','')
+        if(MERGE_WEB_SOCKET === null) {
+            MERGE_WEB_SOCKET = new WebSocket('ws://' + window.location.host + '/running?dryRun=true')
+            MERGE_WEB_SOCKET.addEventListener('message', function(message) { log(message.data)})
+            MERGE_WEB_SOCKET.addEventListener('open', log.bind(null, "Connection opened"))
+            MERGE_WEB_SOCKET.addEventListener('error', log.bind(null, "some error happened"))
+        } else {
+            // Just send a message to dryRun
+            MERGE_WEB_SOCKET.send('dryRun')
+        }
+
     })
 </script>
 </html>

@@ -119,6 +119,11 @@ async function orchestration(dryRun) {
         if (destConn) destConn.end();
         let timeElapsed = (Date.now() - startTime);
         utils.logInfo(`Time elapsed: ${timeElapsed} ms`);
+
+        // Message Queue if not null.
+        if(global.progressMessageQueue !== undefined && global.progressMessageQueue !== null) {
+            global.progressMessageQueue.emit('end');
+        }
     }
 }
 
