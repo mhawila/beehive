@@ -21,7 +21,29 @@
 </head>
 
 <body>
-    <div class="container">
+    <div class="container-fluid">
+    <div class="row">
+    <div class="col-lg-3" style="position: sticky;">
+        <div class="panel panel-success">
+            <div class="panel-heading">
+                <h4 class="panel-title">Merged Sources</h4>
+            </div>
+            <div class="panel-body" style="padding:2px;">
+                <table class="table table-bordered table-striped" style="margin-bottom:0;">
+                    <thead>
+                        <tr>
+                            <th>&nbsp;</th>
+                            <th>Source</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sources-rows">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-9" style="padding-left:0;">
         <div class="jumbotron">
             <h2>Beehive Merging Application</h2>
         </div>
@@ -107,6 +129,8 @@
             </div>
         </div>
     </div>
+    </div>
+    </div><!-- end of the main container -->
 </body>
 <script
       src="https://code.jquery.com/jquery-3.4.1.js"
@@ -194,6 +218,27 @@
                 } else {
                     $('#persist').prop('checked', false)
                 }
+            }
+        })
+
+        $.getJSON('sources', function(data) {
+            console.log('Received ', data)
+            if(Array.isArray(data)) {
+                console.log('Here or not?')
+                var sourcesRowsBody = $('#sources-rows')
+                var sn = 1
+                data.forEach(function(source) {
+                    var sourceRow = $('<tr>')
+                        sourceRow.append('<th>' + sn)
+                        sourceRow.append('<td>' + source['source'])
+                    if(source['atomic_step'] === 'post-obs' && source['passed'] == 1) {
+                        sourceRow.append('<td><span class="label label-success">Completed</span></td>')
+                    } else {
+                        sourceRow.append('<td><span class="label label-warning">Incomplete</span></td>')
+                    }
+                    sourcesRowsBody.append(sourceRow)
+                    sn++
+                })
             }
         })
     })

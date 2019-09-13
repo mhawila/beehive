@@ -5,6 +5,7 @@ const bodyParser = require('body-parser')
 const orchestration = require('../orchestration')
 const MessageQueue = require('../MessageQueue');
 const nodeUtils = require('../node_utils')
+const sources = require('../api/sources')
 
 global.progressMessageQueue = new MessageQueue();
 
@@ -53,6 +54,12 @@ app.get('/running', (req, res) => {
         orchestration()
     }
     res.end('done')
+})
+
+app.get('/sources', (req, res) => {
+    sources.getSourcesLastStep(data => {
+        res.json(data)
+    })
 })
 
 app.ws('/running', (ws, req) => {
