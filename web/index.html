@@ -149,7 +149,7 @@
         if($('#debug').prop('checked')) {
             configuration["debug"] = true;
         } else {
-            configuration["debug"] = true;
+            configuration["debug"] = false;
         }
 
         if($('#persist').prop('checked')) {
@@ -210,8 +210,9 @@
             createConfigurationObject()
             $.post({
                 url: 'configuration',
-                data: createConfigurationObject(),
+                data: JSON.stringify(createConfigurationObject()),
                 dataType: 'json',
+                contentType: 'application/json',
                 success: function(data) {
                     $('.configuration-form').attr('disabled', true)
                     button.removeClass('btn-primary')
