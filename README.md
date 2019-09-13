@@ -150,7 +150,7 @@ $ node --harmony --max_old_space_size=2048 orchestrator.js
 ```
 
 ## Multi Transaction Approach (Purely Academic)
-**Note:** _The user of this application does **NOT** to understand this section in order to use it._
+**Note:** _The user of this application does **NOT** need to understand this section in order to use it._
 
 Implemented to allow the application to start where it left off in case of an error. This comes handy when
 moving huge obs tables (to the tune of 5+ million records).

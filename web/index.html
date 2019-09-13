@@ -47,6 +47,172 @@
         <div class="jumbotron">
             <h2>Beehive Merging Application</h2>
         </div>
+        <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
+          <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="headingOne">
+              <h4 class="panel-title">
+                <a role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+                  Click To Expand/Collapse Instructions
+                </a>
+              </h4>
+            </div>
+            <div id="collapseOne" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="headingOne">
+              <div class="panel-body">
+                    <h2 id="introduction">Introduction</h2>
+                    <p>This nodejs application merges two instances of OpenMRS databases into one. It
+                    works by connecting to the two databases and move data from designated source
+                    database into designated destination database. Once run successfully, the
+                    designated destination database will be a merger of the two initial instances.</p>
+                    <p><strong>Note:</strong></p>
+                    <ol>
+                    <li>If you still want the original copy of the destination database, then
+                    you have to create a copy before running this application on it.</li>
+                    <li>The assumption is made that the two OpenMRS instances share the same
+                     metadata (i.e. concepts, forms e.t.c).</li>
+                    <li>For the purpose of this implementation, some of the tables are purposely ignored
+                    (See below for the list of tables included)</li>
+                    </ol>
+                    <h2 id="tables">Tables</h2>
+                    <p>Below is the list of tables whose records are moved.</p>
+                    <ol>
+                    <li><p><em>person</em></p>
+                    </li>
+                    <li><p><em>person_attribute_type</em></p>
+                    </li>
+                    <li><p><em>person_attribute</em></p>
+                    </li>
+                    <li><p><em>person_name</em></p>
+                    </li>
+                    <li><p><em>person_address</em></p>
+                    </li>
+                    <li><p><em>relationship_type</em></p>
+                    </li>
+                    <li><p><em>relationship</em></p>
+                    </li>
+                    <li><p><em>patient</em></p>
+                    </li>
+                    <li><p><em>patient_identifier_type</em></p>
+                    </li>
+                    <li><p><em>patient_identifier</em></p>
+                    </li>
+                    <li><p><em>users</em></p>
+                    </li>
+                    <li><p><em>role</em></p>
+                    </li>
+                    <li><p><em>role_role</em></p>
+                    </li>
+                    <li><p><em>privilege</em></p>
+                    </li>
+                    <li><p><em>role_privilege</em></p>
+                    </li>
+                    <li><p><em>user_role</em></p>
+                    </li>
+                    <li><p><em>location</em></p>
+                    </li>
+                    <li><p><em>provider</em></p>
+                    </li>
+                    <li><p><em>provider_attribute_type</em></p>
+                    </li>
+                    <li><p><em>provider_attribute</em></p>
+                    </li>
+                    <li><p><em>visit</em></p>
+                    </li>
+                    <li><p><em>visit_type</em></p>
+                    </li>
+                    <li><p><em>encounter</em></p>
+                    </li>
+                    <li><p><em>encounter_role</em></p>
+                    </li>
+                    <li><p><em>encounter_provider</em></p>
+                    </li>
+                    <li><p><em>obs</em></p>
+                    </li>
+                    <li><p><em>program</em></p>
+                    </li>
+                    <li><p><em>program_workflow</em></p>
+                    </li>
+                    <li><p><em>program_workflow_state</em></p>
+                    </li>
+                    <li><p><em>patient_state</em></p>
+                    </li>
+                    <li><p><em>GAAC module tables</em></p>
+                    </li>
+                    </ol>
+                    <h2 id="requirements">Requirements</h2>
+                    <ul>
+                    <li>nodejs 7+</li>
+                    </ul>
+                    <h2 id="running">Running</h2>
+                    <p>Clone the code from github.</p>
+                    <p><code>$ git clone https://github.com/mhawila/beehive.git</code></p>
+                    <p>Switch to branch multi-transcation</p>
+                    <p><code>$ git checkout multi-transaction</code></p>
+                    <p>Change into the project directory, and create a JSON configuration file called
+                    <em>config.json</em> putting the following content.</p>
+                    <pre><code class="lang-javascript">{
+                        <span class="hljs-string">"source"</span>: {
+                            <span class="hljs-string">"host"</span>: <span class="hljs-string">"mysql source host or IP"</span>,
+                            <span class="hljs-string">"username"</span>: <span class="hljs-string">"username"</span>,
+                            <span class="hljs-string">"password"</span>: <span class="hljs-string">"secret"</span>,
+                            <span class="hljs-string">"openmrsDb"</span>: <span class="hljs-string">"openmrs1"</span>,
+                            <span class="hljs-string">"location"</span>: <span class="hljs-string">"unique string to identify location"</span>    //Must be provided.
+                        },
+                        <span class="hljs-string">"destination"</span>: {
+                            <span class="hljs-string">"host"</span>: <span class="hljs-string">"mysql destination host or IP"</span>,
+                            <span class="hljs-string">"username"</span>: <span class="hljs-string">"username"</span>,
+                            <span class="hljs-string">"password"</span>: <span class="hljs-string">"secret"</span>,
+                            <span class="hljs-string">"openmrsDb"</span>: <span class="hljs-string">"openmrs2"</span>
+                        },
+                        <span class="hljs-string">"batchSize"</span>: <span class="hljs-number">16000</span>,
+                        <span class="hljs-string">"generateNewUuids"</span>: <span class="hljs-literal">true</span>,       //Must be provided.
+                        <span class="hljs-string">"debug"</span>: <span class="hljs-literal">false</span>
+                    }
+                    </code></pre>
+                    <h3 id="explanation-of-configuration-options">Explanation of configuration options</h3>
+                    <ul>
+                    <li><em>batchSize</em>: This is number of records that will be moved at a time.</li>
+                    <li><em>generateNewUuids</em>: Whether to generate UUIDs or not. If you want to move the<pre><code>         records <span class="hljs-keyword">with</span> existing UUID which <span class="hljs-keyword">is</span> recommended <span class="hljs-keyword">set</span> this <span class="hljs-keyword">to</span> <span class="hljs-keyword">false</span>
+                             **note:** This option <span class="hljs-keyword">has</span> <span class="hljs-keyword">to</span> be explicitly provided.
+                    </code></pre></li>
+                    <li><em>debug</em>: Whether to print debug level statements.</li>
+                    </ul>
+                    <p><strong>Note:</strong> Substitute the given values with appropriate values.</p>
+                    <p>Once the configuration file is in place, Install the required dependencies:</p>
+                    <pre><code class="lang-shell">$ npm <span class="hljs-keyword">install</span>
+                    </code></pre>
+                    <p>Run the application</p>
+                    <em>You don't need to run these commands if you are using this web UI (Simply use the buttons provided below)</em>
+                    <pre><code class="lang-shell">$ <span class="hljs-keyword">node</span> <span class="hljs-title">--harmony</span> orchestrator.js
+                    </code></pre>
+                    <p>Running without committing changes to the database (Dry running)</p>
+                    <pre><code class="lang-shell">$ <span class="hljs-keyword">node</span> <span class="hljs-title">--harmony</span> orchestrator.js --dry-run
+                    </code></pre>
+                    <h3 id="memory-issues-">Memory Issues.</h3>
+                    <p>This application can be very memory intensive because it reads large sections of tables into memory.
+                    As a result because the default memory limit in Node.js is 512 MB, sometimes the user might experience the
+                    <code>Javascript heap out of memory</code> error when merging big databases.</p>
+                    <p>V8 which Node.js is based provided an option <code>--max_old_space_size=Y</code> where <code>Y</code> is the number interpreted as
+                    megabytes. You can use this option to specify more memory. The example below shows node run with max 2GB of
+                    memory allocated to it.</p>
+                    <pre><code class="lang-shell">$ <span class="hljs-keyword">node</span> <span class="hljs-title">--harmony</span> --<span class="hljs-attr">max_old_space_size=</span><span class="hljs-number">2048</span> orchestrator.js
+                    </code></pre>
+                    <h2 id="multi-transaction-approach-purely-academic-">Multi Transaction Approach (Purely Academic)</h2>
+                    <p><strong>Note:</strong> <em>The user of this application does <strong>NOT</strong> need to understand this section in order to use it.</em></p>
+                    <p>Implemented to allow the application to start where it left off in case of an error. This comes handy when
+                    moving huge obs tables (to the tune of 5+ million records).</p>
+                    <p>Three tables are created in the destination database to facilitate this. The tables and their purposes are as
+                    shown below.</p>
+                    <ol>
+                    <li><em>beehive_merge_progress</em>: This keeps track of the atomic step reached for a particular <em>source</em> being merged to destination.</li>
+                    <li><em>beehive_merge<em>idmap</em></em>{source}: There will be one for each source to simplify handling and deleting if necessary. E.g. for a source named <em>namaccura</em> a table named _beehive_merge_idmap<em>namaccura</em> will be added.</li>
+                    </ol>
+                    <p>There are three atomic steps namely <em><em>pre-obs</em></em>, <em><em>obs</em></em>, and <em><em>post-obs</em></em>. The steps are performed in that order with both pre-obs and post-obs done in one transaction each. The obs step on the other hand can be done in one or multiple transaction depending on the size of the obs table. For a source with an obs table with records equal to or more than a particular number (default is 500,000) more than one transaction is used with each used to move a predefined number of records (default being 250,000).</p>
+                    <p>The <em>beehive_merge_progress</em> table in case of a multi-transaction obs step is used also to keep track of the number of obs moved within each transaction. That way, the application can figure out where to start in case there is a need to re-run the application after encountering an error.</p>
+
+              </div>
+            </div>
+          </div>
+        </div>
         <span id="no-configuration" style="display:none; text-color:red">No Configuration Yet</span>
 
         <div id="configuration-save-success" class="alert alert-success alert-dismissable" style="display:none;">
