@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>Beehive</title>
-    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="beehive.css"/>
     <style>
         body { padding-top:20px; }
         .heading {
@@ -47,7 +48,7 @@
         <div class="jumbotron">
             <h2>Beehive Merging Application</h2>
         </div>
-        <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
+        <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="false">
           <div class="panel panel-default">
             <div class="panel-heading" role="tab" id="headingOne">
               <h4 class="panel-title">
@@ -171,9 +172,9 @@
                     <h3 id="explanation-of-configuration-options">Explanation of configuration options</h3>
                     <ul>
                     <li><em>batchSize</em>: This is number of records that will be moved at a time.</li>
-                    <li><em>generateNewUuids</em>: Whether to generate UUIDs or not. If you want to move the<pre><code>         records <span class="hljs-keyword">with</span> existing UUID which <span class="hljs-keyword">is</span> recommended <span class="hljs-keyword">set</span> this <span class="hljs-keyword">to</span> <span class="hljs-keyword">false</span>
-                             **note:** This option <span class="hljs-keyword">has</span> <span class="hljs-keyword">to</span> be explicitly provided.
-                    </code></pre></li>
+                    <li><em>generateNewUuids</em>: Whether to generate UUIDs or not. If you want to move the records with existing UUID which is recommended set this to false
+                             <em>**note:**</em> This option has to be explicitly provided.
+                    </li>
                     <li><em>debug</em>: Whether to print debug level statements.</li>
                     </ul>
                     <p><strong>Note:</strong> Substitute the given values with appropriate values.</p>
@@ -283,9 +284,9 @@
             		</tr>
             	</tbody>
             </table>
-            <input type="button" class="btn btn-default" id="configuration-button" value="Edit Configuration"/>
-            <input type="button" class="btn btn-default" id="dry-run-button" value="Merge - Dry run"/>
-            <input type="button" class="btn btn-warning" id="run-button" value="Merge"/>
+            <input type="button" class="btn btn-primary outline" id="configuration-button" value="Edit Configuration"/>
+            <input type="button" class="btn btn-primary outline" id="dry-run-button" value="Merge - Dry run"/>
+            <input type="button" class="btn btn-danger outline" id="run-button" value="Merge"/>
         </form>
         <div class="panel panel-success" style="display:none;margin-top:10px" id="merge-logs-panel">
             <div class="panel-heading">
@@ -352,6 +353,8 @@
     }
 
     $(document).ready(function() {
+        $('#collapseOne').collapse("hide");
+
         $.getJSON('configuration', function(data) {
             if(typeof data === 'object') {
                 $('#source-host').val(data.source.host)

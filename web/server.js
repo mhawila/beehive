@@ -1,9 +1,11 @@
 'use strict';
 const fs = require('fs')
+const path = require('path')
 const express = require('express')
 const bodyParser = require('body-parser')
+const cookieParser = require('cookie-parser')
 const orchestration = require('../orchestration')
-const MessageQueue = require('../MessageQueue');
+const MessageQueue = require('../MessageQueue')
 const nodeUtils = require('../node_utils')
 const sources = require('../api/sources')
 
@@ -21,6 +23,9 @@ app.use(bodyParser.urlencoded({ extended: false }))
 
 // parse application/json
 app.use(bodyParser.json())
+app.use(cookieParser())
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(express.static(path.join(__dirname, 'public')))
 
 app.route('/configuration')
     .get((req, res) => {
