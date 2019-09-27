@@ -352,6 +352,29 @@
         return configuration;
     }
 
+    function toggleButtonDisabling() {
+        var configButton = $('#configuration-button')
+        if(configButton.attr('disabled')) {
+            configButton.removeAttr('disabled') 
+        } else {
+            configButton.attr('disabled', true)
+        }
+
+        var dryRunMergeButton = $('#dry-run-button')
+        if(dryRunMergeButton.attr('disabled')) {
+            dryRunMergeButton.removeAttr('disabled') 
+        } else {
+            dryRunMergeButton.attr('disabled', true)
+        }
+
+        var runMergeButton = $('#run-button')
+        if(runMergeButton.attr('disabled')) {
+            runMergeButton.removeAttr('disabled') 
+        } else {
+            runMergeButton.attr('disabled', true)
+        }
+    }
+
     $(document).ready(function() {
         $('#collapseOne').collapse("hide");
 
@@ -391,9 +414,7 @@
         })
 
         $.getJSON('sources', function(data) {
-            console.log('Received ', data)
             if(Array.isArray(data)) {
-                console.log('Here or not?')
                 var sourcesRowsBody = $('#sources-rows')
                 var sn = 1
                 data.forEach(function(source) {
@@ -416,8 +437,7 @@
         var button = $(this);
         if(button.val() === 'Edit Configuration') {
             $('.configuration-form').removeAttr('disabled')
-            button.removeClass('btn-default')
-            button.addClass('btn-primary')
+            button.removeClass('outline')
             button.val('Save Changes')
         } else {
             // Saving new stuff.
@@ -429,8 +449,7 @@
                 contentType: 'application/json',
                 success: function(data) {
                     $('.configuration-form').attr('disabled', true)
-                    button.removeClass('btn-primary')
-                    button.addClass('btn-default')
+                    button.addClass('outline')
                     button.val('Edit Configuration')
                     $('#configuration-save-success').css('display', '')
                 },
@@ -469,15 +488,27 @@
         log('Opening socket connection...')
         $('#merge-logs-panel').css('display','')
         if(MERGE_WEB_SOCKET === null) {
+            toggleButtonDisabling();
             MERGE_WEB_SOCKET = new WebSocket('ws://' + window.location.host + '/running?dryRun=true')
-            MERGE_WEB_SOCKET.addEventListener('message', function(message) { log(message.data)})
+            console.log('See the socket', MERGE_WEB_SOCKET)
             MERGE_WEB_SOCKET.addEventListener('open', log.bind(null, "Connection opened"))
             MERGE_WEB_SOCKET.addEventListener('error', log.bind(null, "some error happened"))
+            MERGE_WEB_SOCKET.addEventListener('message', function(message) {
+                if(message.data === 'end') {
+                    MERGE_WEB_SOCKET.close();
+                    MERGE_WEB_SOCKET = null;
+                    toggleButtonDisabling();
+                }
+                log(message.data)
+            })
         } else {
             // Just send a message to dryRun
             MERGE_WEB_SOCKET.send('dryRun')
         }
+    })
 
+    $('#run-button').click(function() {
+        // Work on this.
     })
 </script>
 </html>
