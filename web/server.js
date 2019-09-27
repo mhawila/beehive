@@ -10,6 +10,8 @@ const nodeUtils = require('../node_utils')
 const sources = require('../api/sources')
 
 global.progressMessageQueue = new MessageQueue();
+const ENQUEUE_EVENT = 'enqueue'
+const QUEUE_END_EVENT = 'end'
 
 const port = 3000
 const CONFIG_DIR = require('path').dirname(__dirname) + '/';
@@ -17,6 +19,13 @@ const CONFIG_FILE_PATH = CONFIG_DIR + '/config.json';
 
 const app = express()
 const ws = require('express-ws')(app);
+
+// Received subsquent messages.
+ws.app.on('message', (data) => {
+    if(data === 'dryRun') {
+        _clearMessageQueueThenRun(true)
+    }
+})
 
 // parse application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: false }))
@@ -70,23 +79,21 @@ app.get('/sources', (req, res) => {
 app.ws('/running', (ws, req) => {
     console.log('Websocket connection');
     console.log('Query string => ', req.query)
-
-    global.progressMessageQueue.on('enqueue', (data) => {
+    console.log('Listener count: ', global.progressMessageQueue.listenerCount('enqueue'));
+    global.progressMessageQueue.on(ENQUEUE_EVENT, (data) => {
         ws.send(JSON.stringify(data))
     })
-
-    global.progressMessageQueue.on('end', () => {
-        // console.log('Is this called at all......?')
+    
+    global.progressMessageQueue.on(QUEUE_END_EVENT, () => {
+        console.log('Is this called at all......?')
+        // Remove all listeners.
+        global.progressMessageQueue.removeAllListeners(ENQUEUE_EVENT)
+        global.progressMessageQueue.removeAllListeners(QUEUE_END_EVENT)
+        
         ws.send('end');
     })
 
-    // Received subsquent messages.
-    ws.on('message', (data) => {
-        if(data === 'dryRun') {
-            _clearMessageQueueThenRun(true)
-        }
-    })
-
+    console.log('Listener count: ', global.progressMessageQueue.listenerCount('enqueue'));
     if(req.query.dryRun !== undefined) {
         _clearMessageQueueThenRun(req.query.dryRun)
     } else {
