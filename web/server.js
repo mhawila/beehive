@@ -20,12 +20,12 @@ const CONFIG_FILE_PATH = CONFIG_DIR + '/config.json';
 const app = express()
 const ws = require('express-ws')(app);
 
-// Received subsquent messages.
-ws.app.on('message', (data) => {
-    if(data === 'dryRun') {
-        _clearMessageQueueThenRun(true)
-    }
-})
+let mergeIsRunning = false;
+
+const removeMessageQueueListeners = () => {
+    global.progressMessageQueue.removeAllListeners(ENQUEUE_EVENT)
+    global.progressMessageQueue.removeAllListeners(QUEUE_END_EVENT)
+}
 
 // parse application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: false }))
@@ -60,14 +60,12 @@ app.route('/configuration')
         res.json({status: 'success'})
     })
 
-app.get('/running', (req, res) => {
-    console.log('Query string => ', req.query)
-    if(req.query.dryRun !== undefined) {
-        orchestration(req.query.dryRun)
+app.get('/check-running', (req, res) => {
+    if(mergeIsRunning) {
+        res.json({ running: true })
     } else {
-        orchestration()
+        res.json({ running: false })
     }
-    res.end('done')
 })
 
 app.get('/sources', (req, res) => {
@@ -79,25 +77,30 @@ app.get('/sources', (req, res) => {
 app.ws('/running', (ws, req) => {
     console.log('Websocket connection');
     console.log('Query string => ', req.query)
-    console.log('Listener count: ', global.progressMessageQueue.listenerCount('enqueue'));
     global.progressMessageQueue.on(ENQUEUE_EVENT, (data) => {
         ws.send(JSON.stringify(data))
     })
-    
+
     global.progressMessageQueue.on(QUEUE_END_EVENT, () => {
-        console.log('Is this called at all......?')
         // Remove all listeners.
-        global.progressMessageQueue.removeAllListeners(ENQUEUE_EVENT)
-        global.progressMessageQueue.removeAllListeners(QUEUE_END_EVENT)
-        
+        mergeIsRunning = false;
+        removeMessageQueueListeners()
         ws.send('end');
     })
 
-    console.log('Listener count: ', global.progressMessageQueue.listenerCount('enqueue'));
-    if(req.query.dryRun !== undefined) {
-        _clearMessageQueueThenRun(req.query.dryRun)
+    ws.on('close', removeMessageQueueListeners)
+    ws.on('error', removeMessageQueueListeners)
+
+    if( !mergeIsRunning ) {
+        mergeIsRunning = true;
+        if(req.query.dryRun) {
+            _clearMessageQueueThenRun(req.query.dryRun)
+        } else {
+            orchestration()
+        }
     } else {
-        orchestration()
+        // Send the existing logs.
+        ws.send(global.progressMessageQueue.messages)
     }
 })
 

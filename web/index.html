@@ -375,6 +375,66 @@
         }
     }
 
+
+    function makeWebsocketConnection(dryRun) {
+        if(dryRun === undefined || dryRun === null) {
+            dryRun = true;
+        }
+        
+        var sock = $('#socket')
+        // clear logs if any.
+        sock.html('')
+
+        var logMergeLogMessage = function (messageObject) {
+            var color = 'color:';
+            if(messageObject.category) {
+                switch(messageObject.category) {
+                    case 'ERROR': color += 'red;'; break;
+                    case 'OK': color += 'green;'; break;
+                    case 'DEBUG': color += 'yellow;'; break;
+                    default: color += 'white;';
+                }
+            }
+            var li = $('<li style="' + color + '">').html(messageObject.message);
+            $('#socket').append(li);
+        }
+
+        var logString = function (message) {
+            var li = $('<li style="color:white;">').html(new Date().toISOString()+ ' ' + message)
+            $('#socket').append(li);
+        }
+
+        logString('Opening socket connection...')
+        $('#merge-logs-panel').css('display','')
+        if(MERGE_WEB_SOCKET === null) {
+            toggleButtonDisabling();
+            MERGE_WEB_SOCKET = new WebSocket('ws://' + window.location.host + '/running?dryRun=' + dryRun)
+            console.log('See the socket', MERGE_WEB_SOCKET)
+            MERGE_WEB_SOCKET.addEventListener('open', logString.bind(null, "Connection opened"))
+            MERGE_WEB_SOCKET.addEventListener('error', logString.bind(null, "some error happened"))
+            MERGE_WEB_SOCKET.addEventListener('message', function(message) {
+                if(message.data === 'end') {
+                    MERGE_WEB_SOCKET.close();
+                    MERGE_WEB_SOCKET = null;
+                    toggleButtonDisabling();
+                }
+
+                try {
+                    var parsedData = JSON.parse(message.data)
+                    if(Array.isArray(parsedData)) {
+                        parsedData.forEach(function(dataElement) {
+                            logMergeLogMessage(dataElement)
+                        })
+                    } else {
+                        logMergeLogMessage(parsedData)
+                    }
+                } catch (e) {
+                    logString(message.data)
+                }
+            })
+        } 
+    }
+
     $(document).ready(function() {
         $('#collapseOne').collapse("hide");
 
@@ -431,6 +491,14 @@
                 })
             }
         })
+
+        // Check if there is already a merge going on on the server
+        $.getJSON('check-running', function(response) {
+            if(response.running) {
+                // Connect to receive updates.
+                makeWebsocketConnection()
+            }
+        })
     })
 
     $('#configuration-button').click(function() {
@@ -461,50 +529,7 @@
     })
 
     $('#dry-run-button').click(function() {
-        var sock = $('#socket')
-        // clear logs if any.
-        sock.html('')
-
-        var log = function(m) {
-            try {
-                var data = JSON.parse(m);
-                var color = 'color:';
-                if(data.category) {
-                    switch(data.category) {
-                        case 'ERROR': color += 'red;'; break;
-                        case 'OK': color += 'green;'; break;
-                        case 'DEBUG': color += 'yellow;'; break;
-                        default: color += 'white;';
-                    }
-                }
-                var li = $('<li style="' + color + '">').html(data.message);
-            } catch(e) {
-                var li = $('<li>').html(new Date().toISOString()+ ' ' + m)
-            }
-
-            $('#socket').append(li);
-        }
-
-        log('Opening socket connection...')
-        $('#merge-logs-panel').css('display','')
-        if(MERGE_WEB_SOCKET === null) {
-            toggleButtonDisabling();
-            MERGE_WEB_SOCKET = new WebSocket('ws://' + window.location.host + '/running?dryRun=true')
-            console.log('See the socket', MERGE_WEB_SOCKET)
-            MERGE_WEB_SOCKET.addEventListener('open', log.bind(null, "Connection opened"))
-            MERGE_WEB_SOCKET.addEventListener('error', log.bind(null, "some error happened"))
-            MERGE_WEB_SOCKET.addEventListener('message', function(message) {
-                if(message.data === 'end') {
-                    MERGE_WEB_SOCKET.close();
-                    MERGE_WEB_SOCKET = null;
-                    toggleButtonDisabling();
-                }
-                log(message.data)
-            })
-        } else {
-            // Just send a message to dryRun
-            MERGE_WEB_SOCKET.send('dryRun')
-        }
+        makeWebsocketConnection(true)
     })
 
     $('#run-button').click(function() {
