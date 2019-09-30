@@ -118,7 +118,7 @@ async function orchestration(dryRun) {
         if (srcConn) srcConn.end();
         if (destConn) destConn.end();
         let timeElapsed = (Date.now() - startTime);
-        utils.logInfo(`Time elapsed: ${timeElapsed} ms`);
+        utils.logInfo(`Time elapsed: ${utils.getSimpleTimeString(timeElapsed)}`);
 
         // Message Queue if not null.
         if(global.progressMessageQueue !== undefined && global.progressMessageQueue !== null) {
