@@ -134,13 +134,17 @@ async function consolidatePatientIdentifierTypes(srcConn, destConn) {
 }
 
 async function movePatients(srcConn, destConn) {
+    let toExclude = '(' + global.excludedPersonIds.join(',') + ')';
+    let condition = `patient_id NOT IN ${toExclude}`;
     return await moveAllTableRecords(srcConn, destConn, 'patient', 'patient_id',
-        preparePatientInsert);
+        preparePatientInsert, condition);
 }
 
 async function movePatientIdentifiers(srcConn, destConn) {
+    let toExclude = '(' + global.excludedPersonIds.join(',') + ')';
+    let condition = `patient_id NOT IN ${toExclude}`;
     return await moveAllTableRecords(srcConn, destConn, 'patient_identifier',
-        'patient_identifier_id', preparePatientIdentifierInsert);
+        'patient_identifier_id', preparePatientIdentifierInsert, condition);
 }
 
 async function main(srcConn, destConn) {
