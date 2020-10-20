@@ -67,18 +67,26 @@ async function ensureUniqueUuids(params) {
         `t1.${uuid} = t2.${uuid})`;
 
     utils.logDebug(`Query hunting for duplicate UUIDs in ${params.table}:\n ${query}`);
-    let [result] = await params.connection.query(query);
+    try {
+        let [result] = await params.connection.query(query);
 
-    let changed = [];
-    if(result.length > 0) {
-        changed = await action(params.connection, params.table, primaryKey,
-                                                primaryKeyType, uuid, result);
-    }
+        let changed = [];
+        if(result.length > 0) {
+            changed = await action(params.connection, params.table, primaryKey,
+                                                    primaryKeyType, uuid, result);
+        }
 
-    if(typeof params.callback === 'function') {
-        callback();
+        if(typeof params.callback === 'function') {
+            callback();
+        }
+        return changed;
+    } catch(ex) {
+        if(query) {
+            utils.logError('SQL statement during error:');
+            utils.logError(query);
+        }
+        throw ex;
     }
-    return changed;
 }
 
 function _prepareUpdateSQL(table, primaryKey, primaryKeyType, uuidField, rows) {

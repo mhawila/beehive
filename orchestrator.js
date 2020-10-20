@@ -51,7 +51,10 @@ async function orchestration() {
 
         // Check for UUID collisions
 
-        if(!dryRun) {
+        if(dryRun) {
+            utils.logInfo(logTime(), ': Partial preparation for DRY run');
+            await preparation.prepareForDryRun(srcConn,destConn);
+        } else {
             utils.logInfo(logTime(), ': Preparing destination database...');
             await prepare(srcConn,destConn, config);
         }

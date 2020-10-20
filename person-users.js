@@ -637,10 +637,10 @@ async function movePersonNamesforMovedPersons(srcConn, destConn) {
     while (Array.isArray(r) && r.length > 0) {
         let [insertStmt, nextId] = preparePersonNameInsert(r, nextPersonNameId);
         let [result, meta] = await destConn.query(insertStmt);
-        moved += result.affectedRows;
+        moved = utils.addDecimalNumbers(moved, result.affectedRows);
         nextPersonNameId = nextId;
 
-        startingRecord += BATCH_SIZE;
+        startingRecord = utils.addDecimalNumbers(startingRecord, BATCH_SIZE);
         dynamicQuery = fetchQuery + `${startingRecord}, ${BATCH_SIZE}`;
         [r, f] = await srcConn.query(dynamicQuery);
 
@@ -673,15 +673,15 @@ async function movePersons(srcConn, destConn, srcUserId) {
         while (temp % BATCH_SIZE > 0) {
             let query = personFetchQuery;
             if (Math.floor(temp / BATCH_SIZE) > 0) {
-                moved += BATCH_SIZE;
+                moved = utils.addDecimalNumbers(moved, BATCH_SIZE);
                 query += startingRecord + ', ' + BATCH_SIZE;
-                temp -= BATCH_SIZE;
+                temp = utils.subtractDecimalNumbers(temp, BATCH_SIZE);
             } else {
-                moved += temp;
+                moved = utils.addDecimalNumbers(moved, temp);
                 query += startingRecord + ', ' + temp;
                 temp = 0;
             }
-            startingRecord += BATCH_SIZE;
+            startingRecord = utils.addDecimalNumbers(startingRecord, BATCH_SIZE);
 
             if (!queryLogged) {
                 utils.logDebug('Person fetch query:', query);
@@ -728,15 +728,15 @@ async function moveUsers(srcConn, destConn, creatorId) {
         while (temp % BATCH_SIZE > 0) {
             let query = userFetchQuery;
             if (Math.floor(temp / BATCH_SIZE) > 0) {
-                moved += BATCH_SIZE;
+                moved = utils.addDecimalNumbers(moved, BATCH_SIZE);
                 query += startingRecord + ', ' + BATCH_SIZE;
-                temp -= BATCH_SIZE;
+                temp = utils.subtractDecimalNumbers(temp, BATCH_SIZE);
             } else {
-                moved += temp;
+                moved = utils.addDecimalNumbers(moved, temp);
                 query += startingRecord + ', ' + temp;
                 temp = 0;
             }
-            startingRecord += BATCH_SIZE;
+            startingRecord = utils.addDecimalNumbers(startingRecord, BATCH_SIZE);
             let [records, fields] = await srcConn.query(query);
             [insertStmt, nextId] = prepareUserInsert(records, nextUserId);
 
@@ -772,8 +772,8 @@ async function traverseUserTree(tree, srcConn, destConn) {
         if (tree.children && tree.children.length > 0) {
             for (let i = 0; i < tree.children.length; i++) {
                 let childMoved = await traverseUserTree(tree.children[i], srcConn, destConn);
-                movedPersons += childMoved.movedPersonsCount;
-                movedUsers += childMoved.movedUsersCount;
+                movedPersons = utils.addDecimalNumbers(movedPersons, childMoved.movedPersonsCount);
+                movedUsers = utils.addDecimalNumbers(movedUsers, childMoved.movedUsersCount);
             }
         }
 
@@ -835,12 +835,12 @@ async function updateAuditInfoForPersons(srcConn, destConn) {
             query = queryParts;
             if (Math.floor(temp / BATCH_SIZE) > 0) {
                 query += startingRecord + ', ' + BATCH_SIZE;
-                temp -= BATCH_SIZE;
+                temp = utils.subtractDecimalNumbers(temp, BATCH_SIZE);
             } else {
                 query += startingRecord + ', ' + temp;
                 temp = 0;
             }
-            startingRecord += BATCH_SIZE;
+            startingRecord = utils.addDecimalNumbers(startingRecord, BATCH_SIZE);
 
             let [records] = await srcConn.query(query);
             [updateStmt, toUpdate] = preparePersonAuditInfoUpdateQuery(records);
@@ -853,7 +853,7 @@ async function updateAuditInfoForPersons(srcConn, destConn) {
                     utils.logDebug(utils.shortenInsert(updateStmt));
                     queryLogged = true;
                 }
-                updated += toUpdate;
+                updated = utils.addDecimalNumbers(updated, toUpdate);
                 await destConn.query(updateStmt);
             }
         }
@@ -899,12 +899,12 @@ async function updateAuditInfoForUsers(srcConn, destConn) {
             query = queryParts;
             if (Math.floor(temp / BATCH_SIZE) > 0) {
                 query += startingRecord + ', ' + BATCH_SIZE;
-                temp -= BATCH_SIZE;
+                temp = utils.subtractDecimalNumbers(temp, BATCH_SIZE);
             } else {
                 query += startingRecord + ', ' + temp;
                 temp = 0;
             }
-            startingRecord += BATCH_SIZE;
+            startingRecord = utils.addDecimalNumbers(startingRecord, BATCH_SIZE);
 
             let [records] = await srcConn.query(query);
             let [updateStmt, toUpdate] = prepareUserAuditInfoUpdateQuery(records);
@@ -917,7 +917,7 @@ async function updateAuditInfoForUsers(srcConn, destConn) {
                     utils.logDebug(utils.shortenInsert(updateStmt))
                     queryLogged = true;
                 }
-                updated += toUpdate;
+                updated = utils.addDecimalNumbers(updated, toUpdate);
                 await destConn.query(updateStmt);
             }
         }
