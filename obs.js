@@ -3,8 +3,8 @@ let strValue = utils.stringValue;
 let moveAllTableRecords = utils.moveAllTableRecords;
 
 let beehive = global.beehive;
-let obsWithTheirGroupNotUpdated = new Map();
-let obsWithPreviousNotUpdated = new Map();
+let obsWithTheirGroupNotUpdated = {};
+let obsWithPreviousNotUpdated = {};
 
 function prepareObsInsert(rows, nextId) {
   let insert = 'INSERT INTO obs(obs_id, person_id, concept_id, encounter_id, '
@@ -16,50 +16,51 @@ function prepareObsInsert(rows, nextId) {
         + 'date_voided, void_reason, uuid) VALUES ';
 
   let toBeinserted = '';
-  rows.forEach(row => {
+  for(let i = 0; i < rows.length; i++) {
+    let row = rows[i];
     if(toBeinserted.length > 1) {
-      toBeinserted += ',';
-    }
-
-    let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
-    let obsGroupsId = row['obs_group_id'] === null ? null : beehive.obsMap.get(row['obs_group_id']);
-    let previous = row['previous_version']=== null ? null : beehive.obsMap.get(row['previous_version']);
-    let encounterId = row['encounter_id'] === null ? null : beehive.encounterMap.get(row['encounter_id']);
-    let locationId = row['location_id'] === null ? null : beehive.locationMap.get(row['location_id']);
-    beehive.obsMap.set(row['obs_id'], nextId);
-
-    if(obsGroupsId === undefined) {
-        obsGroupsId = null;
-        if(row['obs_group_id'] !== null) {
-            obsWithTheirGroupNotUpdated.set(nextId, row['obs_group_id']);
-        }
-    }
-
-    if(previous === undefined) {
-        previous = null;
-        if(row['previous_version'] !== null) {
-            obsWithPreviousNotUpdated.set(nextId, row['previous_version']);
-        }
-    }
-
-    toBeinserted += `(${nextId}, ${beehive.personMap.get(row['person_id'])}, `
-        + `${row['concept_id']},  ${encounterId}, `
-        + `${row['order_id']}, ${strValue(utils.formatDate(row['obs_datetime']))}, `
-        + `${locationId}, ${obsGroupsId}, `
-        + `${strValue(row['accession_number'])}, ${row['value_group_id']}, `
-        + `${row['value_boolean']}, ${row['value_coded']}, `
-        + `${row['value_coded_name_id']}, ${row['value_drug']}, `
-        + `${strValue(utils.formatDate(row['value_datetime']))}, `
-        + `${row['value_numeric']}, ${strValue(row['value_modifier'])}, `
-        + `${strValue(row['value_text'])}, ${strValue(row['value_complex'])}, `
-        + `${strValue(row['comments'])}, ${previous}, `
-        + `${beehive.userMap.get(row['creator'])}, `
-        + `${strValue(utils.formatDate(row['date_created']))}, `
-        + `${row['voided']}, ${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, `
-        + `${strValue(row['void_reason'])}, ${utils.uuid(row['uuid'])})`
-
-    nextId++;
-  });
+        toBeinserted += ',';
+      }
+  
+      let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
+      let obsGroupsId = row['obs_group_id'] === null ? null : beehive.obsMap[row['obs_group_id']];
+      let previous = row['previous_version']=== null ? null : beehive.obsMap[row['previous_version']];
+      let encounterId = row['encounter_id'] === null ? null : beehive.encounterMap.get(row['encounter_id']);
+      let locationId = row['location_id'] === null ? null : beehive.locationMap.get(row['location_id']);
+      beehive.obsMap[row['obs_id']] = nextId;
+  
+      if(obsGroupsId === undefined) {
+          obsGroupsId = null;
+          if(row['obs_group_id'] !== null) {
+              obsWithTheirGroupNotUpdated[nextId] = row['obs_group_id'];
+          }
+      }
+  
+      if(previous === undefined) {
+          previous = null;
+          if(row['previous_version'] !== null) {
+              obsWithPreviousNotUpdated[nextId] = row['previous_version'];
+          }
+      }
+  
+      toBeinserted += `(${nextId}, ${beehive.personMap.get(row['person_id'])}, `
+          + `${row['concept_id']},  ${encounterId}, `
+          + `${row['order_id']}, ${strValue(utils.formatDate(row['obs_datetime']))}, `
+          + `${locationId}, ${obsGroupsId}, `
+          + `${strValue(row['accession_number'])}, ${row['value_group_id']}, `
+          + `${row['value_boolean']}, ${row['value_coded']}, `
+          + `${row['value_coded_name_id']}, ${row['value_drug']}, `
+          + `${strValue(utils.formatDate(row['value_datetime']))}, `
+          + `${row['value_numeric']}, ${strValue(row['value_modifier'])}, `
+          + `${strValue(row['value_text'])}, ${strValue(row['value_complex'])}, `
+          + `${strValue(row['comments'])}, ${previous}, `
+          + `${beehive.userMap.get(row['creator'])}, `
+          + `${strValue(utils.formatDate(row['date_created']))}, `
+          + `${row['voided']}, ${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, `
+          + `${strValue(row['void_reason'])}, ${utils.uuid(row['uuid'])})`
+  
+      nextId++;
+  }
 
   let insertStatement = insert + toBeinserted;
   return [insertStatement, nextId];
@@ -71,23 +72,24 @@ async function moveObs(srcConn, destConn) {
 }
 
 async function updateObsPreviousOrGroupId(connection, idMap, field) {
-    if(idMap.size > 0) {
+    let mapEntries = Object.entries(idMap);
+    if(mapEntries.length > 0) {
         let update = `INSERT INTO obs(obs_id, ${field}) VALUES `;
         let lastPart = ` ON DUPLICATE KEY UPDATE ${field} = VALUES(${field})`;
 
         let values = '';
-        idMap.forEach((srcIdValue, obsId) => {
+        for(const [obsId, srcIdValue] of mapEntries) {
             if(values.length > 1) {
                 values += ',';
             }
-            values += `(${obsId}, ${beehive.obsMap.get(srcIdValue)})`;
-        });
+            values += `(${obsId}, ${beehive.obsMap[srcIdValue]})`;
+        }
 
         let query = update + values + lastPart;
         utils.logDebug(`${field} update query:`, query);
         await connection.query(query);
     }
-    return idMap.size;
+    return mapEntries.length;
 }
 
 module.exports = async function(srcConn, destConn) {

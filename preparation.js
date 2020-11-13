@@ -21,12 +21,15 @@
         'providerMap',
         'visitTypeMap',
         'visitMap',
-        'obsMap'
     ];
 
     beehiveMapNames.forEach(mapName => {
         global.beehive[mapName] = new Map();
     });
+
+    // Use Object literal for obsMap to avoid the Map's number of entries hard limit of 16777216
+    // Object literal has more than 100 million hard limit on the number of keys.
+    global.beehive['obsMap'] = {};
 
     //Add admin person_id mapping it to 1
     global.beehive.personMap.set(1,1);
@@ -159,6 +162,7 @@
 
     module.exports = {
         prepare: prepareForNewSource,
-        insertSource: _insertSource
+        insertSource: _insertSource,
+        prepareForDryRun: _usersAndAssociatedPersonsToExclude
     };
 })();

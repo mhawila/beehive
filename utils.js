@@ -181,13 +181,13 @@ let moveAllTableRecords = async function(srcConn, destConn, tableName, orderColu
             if (Math.floor(temp / config.batchSize) > 0) {
                 // moved += config.batchSize;
                 query += start + ', ' + config.batchSize;
-                temp -= config.batchSize;
+                temp = subtractDecimalNumbers(temp, config.batchSize);
             } else {
                 // moved += temp;
                 query += start + ', ' + temp;
                 temp = 0;
             }
-            start += config.batchSize;
+            start = addDecimalNumbers(start, config.batchSize);
             let [r] = await srcConn.query(query);
             [q, nextId] = insertQueryPrepareFunction.call(null, r, nextAutoIncr);
 
@@ -198,7 +198,7 @@ let moveAllTableRecords = async function(srcConn, destConn, tableName, orderColu
 
             if(q) {
                 [r] = await destConn.query(q);
-                moved += r.affectedRows;
+                moved =  addDecimalNumbers(moved, r.affectedRows);
             }
 
             nextAutoIncr = nextId;
@@ -249,6 +249,9 @@ let shortenInsertStatement = function(statement) {
     return statement.substring(0, lastParenth + 1) + '...';
 }
 
+let addDecimalNumbers = (n1, n2) => Number.parseInt(n1, 10) + Number.parseInt(n2, 10);
+let subtractDecimalNumbers = (n1, n2) => Number.parseInt(n1, 10) - Number.parseInt(n2, 10);
+
 async function personIdsToexclude(connection) {
     // Get the person associated with daemon user
     let exclude = `SELECT person_id from users WHERE system_id IN ('daemon', 'admin')`;
@@ -270,5 +273,7 @@ module.exports = {
     uuid: uuid,
     shortenInsert: shortenInsertStatement,
     consolidateRecords: consolidateTableRecords,
-    personIdsToexclude: personIdsToexclude
+    personIdsToexclude: personIdsToexclude,
+    addDecimalNumbers: addDecimalNumbers,
+    subtractDecimalNumbers: subtractDecimalNumbers
 };
