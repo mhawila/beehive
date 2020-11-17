@@ -69,7 +69,7 @@ function prepareEncounterProviderInsert(rows, nextId) {
 function prepareEncounterTypeInsert(rows, nextId) {
     let insert = 'INSERT INTO encounter_type(encounter_type_id, name, ' +
         'description, creator, date_created, retired, retired_by, ' +
-        'date_retired, retire_reason, uuid) VALUES ';
+        'date_retired, retire_reason, uuid, view_privilege, edit_privilege, changed_by, date_changed) VALUES ';
 
     let toBeinserted = '';
     rows.forEach(row => {
@@ -78,6 +78,7 @@ function prepareEncounterTypeInsert(rows, nextId) {
         }
 
         let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
+        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
         beehive.encounterTypeMap.set(row['encounter_type_id'], nextId);
 
@@ -87,7 +88,9 @@ function prepareEncounterTypeInsert(rows, nextId) {
             `${strValue(utils.formatDate(row['date_created']))}, ` +
             `${row['retired']}, ${retiredBy}, ` +
             `${strValue(utils.formatDate(row['date_retired']))}, ` +
-            `${strValue(row['retire_reason'])}, ${utils.uuid(row['uuid'])})`;
+            `${strValue(row['retire_reason'])}, ${utils.uuid(row['uuid'])}, ` + 
+            `${strValue(row['view_privilege'])}, ${strValue(row['edit_privilege'])}, ` + 
+            `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))})`;
 
         nextId++;
     });

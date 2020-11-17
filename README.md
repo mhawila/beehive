@@ -1,7 +1,7 @@
 # beehive
 
 ## Introduction
-This nodejs application merges two instances of OpenMRS databases into one. It
+This nodejs application merges two instances of OpenMRS 2.x databases into one. It
 works by connecting to the two databases and move data from designated source
 database into designated destination database. Once run successfully, the
 designated destination database will be a merger of the two initial instances.
