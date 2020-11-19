@@ -79,7 +79,7 @@ Below is the list of tables whose records are moved.
 31. *GAAC module tables*
 
 ## Requirements
-* nodejs 7+
+* nodejs 10+
 
 ## Running
 Clone the code from github.
@@ -104,7 +104,7 @@ Change into the project directory, and create a JSON configuration file called
         "openmrsDb": "openmrs2"
     },
     "batchSize": 16000,
-    "generateNewUuids": true,       //Must be provided.
+    "generateNewUuids": false,       //Must be provided.
     "debug": false
 }
 ```
@@ -112,7 +112,9 @@ Change into the project directory, and create a JSON configuration file called
 * _batchSize_: This is number of records that will be moved at a time.
 * _generateNewUuids_: Whether to generate UUIDs or not. If you want to move the
                records with existing UUID which is recommended set this to false
-               **note:** This option has to be explicitly provided.
+               **note:** This option has to be explicitly provided. Also if chosen the newly
+               assigned UUIDs won't correlate with the source records. Mostly used for repetitive
+               runs during TESTING. IN production to maintain UUIDs across instances it must be FALSE.
 * _debug_: Whether to print debug level statements.
 
 **Note:** Substitute the given values with appropriate values.
@@ -130,4 +132,15 @@ $ node --harmony orchestrator.js
 Running without committing changes to the database (Dry running)
 ```shell
 $ node --harmony orchestrator.js --dry-run
+```
+
+### Merge Verification
+The application includes a verification process that is run separately once the merging has been completed.
+Currently the tables being verified are *person*, *person_attribute*, *person_name*, *person_address*, 
+*relationship*, *patient_identifier*, *visit*, *encounter*, *provider*, *program_workflow*, *patient_state*,
+*obs*, *gaac*, *gaac_member*. **Also currently this feature is supported on database running on the same instance 
+of MySQL**. In order to run this process, run the following command on terminal.
+
+```shell
+$ node verify-merge.js
 ```
