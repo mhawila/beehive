@@ -32,7 +32,6 @@
     global.beehive['obsMap'] = {};
 
     //Add admin person_id mapping it to 1
-    global.beehive.personMap.set(1,1);
 
     async function _sourceAlreadyExists(connection, source) {
         let query = 'SELECT source FROM beehive_merge_source where source = ' +
@@ -135,12 +134,7 @@
     }
 
     async function _usersAndAssociatedPersonsToExclude(srcConn, destConn) {
-        let exclude = `SELECT * from users WHERE system_id IN ('daemon', 'admin')`;
-        let [results] = await srcConn.query(exclude);
-        global.excludedPersonIds = results.map(result => result['person_id']);
-        global.excludedUsersIds = results.map(result => result['user_id']);
-
-        let q = `SELECT * FROM users where system_id NOT IN ('admin', 'daemon')`;
+        let q = `SELECT * FROM users`;
         let [srcUsers] = await srcConn.query(q);
         let [destUsers] = await destConn.query(q);
 
@@ -157,6 +151,13 @@
                 global.beehive.userMap.set(su['user_id'], match['user_id']);
                 global.beehive.personMap.set(su['person_id'], match['person_id']);
             }
+        });
+
+        // Exclude person associated with Unknown provider
+        q = `SELECT person_id FROM person_name WHERE given_name = 'Unknown' AND family_name = 'Provider'`;
+        let [unknowProviders] = await srcConn.query(q);
+        unknowProviders.forEach(unknownProvider => {
+            global.excludedPersonIds.push(unknownProvider['person_id']);
         });
     }
 
