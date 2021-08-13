@@ -12,7 +12,7 @@ let beehive = global.beehive;
 const movedLaterPersonsMap = new Map();
 
 function preparePersonInsert(rows, nextPersonId) {
-    let insert = 'INSERT INTO person(person_id, gender, birthdate,' +
+    let insert = 'INSERT IGNORE INTO person(person_id, gender, birthdate,' +
         'birthdate_estimated, dead, death_date, cause_of_death, creator,' +
         'date_created, date_changed, voided, ' +
         'date_voided, void_reason, uuid) VALUES ';
@@ -66,7 +66,7 @@ function preparePersonAuditInfoUpdateQuery(rows) {
 }
 
 function preparePersonNameInsert(rows, nextPersonNameId) {
-    let insert = 'INSERT INTO person_name(person_name_id, preferred, person_id, ' +
+    let insert = 'INSERT IGNORE INTO person_name(person_name_id, preferred, person_id, ' +
         'prefix, given_name, middle_name, family_name_prefix, family_name,' +
         'family_name2, family_name_suffix, degree, creator, date_created,' +
         'voided, voided_by, date_voided, void_reason, changed_by, ' +
@@ -102,7 +102,7 @@ function preparePersonNameInsert(rows, nextPersonNameId) {
 }
 
 function preparePersonAddressInsert(rows, nextId) {
-    let insert = 'INSERT INTO person_address (person_address_id, person_id, ' +
+    let insert = 'INSERT IGNORE INTO person_address (person_address_id, person_id, ' +
         'preferred, address1, address2, city_village, state_province, ' +
         'postal_code, country, latitude, longitude, creator, date_created, ' +
         'voided, voided_by, date_voided, void_reason, county_district, ' +
@@ -211,7 +211,7 @@ function preparePersonAttributeTypeInsert(rows, nextId) {
 }
 
 function preparePersonAttributeInsert(rows, nextId) {
-    let insert = 'INSERT INTO person_attribute(person_attribute_id, person_id, ' +
+    let insert = 'INSERT IGNORE INTO person_attribute(person_attribute_id, person_id, ' +
         'value, person_attribute_type_id, creator, date_created, changed_by, ' +
         'date_changed, voided, voided_by, date_voided, void_reason, uuid) ' +
         'VALUES ';
@@ -241,7 +241,7 @@ function preparePersonAttributeInsert(rows, nextId) {
 }
 
 function prepareRelationshipInsert(rows, nextId) {
-    let insert = 'INSERT INTO relationship(relationship_id, person_a, relationship, ' +
+    let insert = 'INSERT IGNORE INTO relationship(relationship_id, person_a, relationship, ' +
         'person_b, creator, date_created, voided, voided_by, date_voided, ' +
         'void_reason, uuid, date_changed, changed_by, start_date, end_date)' +
         ' VALUES ';
@@ -272,7 +272,7 @@ function prepareRelationshipInsert(rows, nextId) {
 }
 
 function prepareUserInsert(rows, nextUserId) {
-    let insert = 'INSERT INTO users(user_id, system_id, username, password, salt,' +
+    let insert = 'INSERT IGNORE INTO users(user_id, system_id, username, password, salt,' +
         'secret_question, secret_answer, creator, date_created, ' +
         'date_changed, person_id, retired, ' +
         'date_retired, retire_reason, uuid) VALUES ';
@@ -568,6 +568,27 @@ async function getUsersCount(connection, condition) {
         countQuery += ' WHERE ' + condition;
     }
 
+    utils.logDebug(`Users count query: ${countQuery}`);
+    try {
+        let [results] = await connection.query(countQuery);
+        return results[0]['users_count'];
+    } catch (ex) {
+        utils.logError('Error: while fetching users count');
+        utils.logError('Query: ', countQuery);
+        throw ex;
+    }
+}
+
+async function getUsersCountIgnoreDuplicateUuids(connection, condition) {
+    let countQuery = `SELECT count(*) as users_count FROM ${config.source.openmrsDb}.users`;
+
+    if (condition) {
+        countQuery += ' WHERE ' + condition+ ` AND uuid NOT IN (SELECT uuid FROM ${config.destination.openmrsDb}.users)`;
+    } else {
+        countQuery += ` WHERE uuid NOT IN (SELECT uuid FROM ${config.destination.openmrsDb}.users)`;
+    }
+
+    utils.logDebug(`Users count query: ${countQuery}`);
     try {
         let [results] = await connection.query(countQuery);
         return results[0]['users_count'];
@@ -583,6 +604,26 @@ async function getPersonsCount(connection, condition) {
 
     if (condition) {
         personCountQuery += ' WHERE ' + condition;
+    }
+
+    utils.logDebug(`Person count query: ${personCountQuery}`);
+    try {
+        let [results, metadata] = await connection.query(personCountQuery);
+        return results[0]['person_count'];
+    } catch (ex) {
+        utils.logError('Error while fetching number of records in person table');
+        utils.logError('Query: ', personCountQuery);
+        throw ex;
+    }
+}
+
+async function getPersonsCountIgnoreDuplicateUuids(connection, condition) {
+    let personCountQuery = `SELECT COUNT(*) as person_count from ${config.source.openmrsDb}.person`;
+
+    if (condition) {
+        personCountQuery += ' WHERE ' + condition + ` AND uuid NOT IN (SELECT uuid FROM ${config.destination.openmrsDb}.person)`;
+    } else {
+        personCountQuery += ` WHERE uuid NOT IN (SELECT uuid FROM ${config.destination.openmrsDb}.person)`;
     }
 
     utils.logDebug(`Person count query: ${personCountQuery}`);
@@ -634,8 +675,8 @@ async function createUserTree(connection, rootUserId, tree) {
 async function movePersonNamesforMovedPersons(srcConn, destConn) {
     let toExclude = '(' + global.excludedPersonIds.join(',') + ')';
 
-    let fetchQuery = `SELECT * FROM person_name WHERE ` +
-            `person_id NOT IN ${toExclude} order by person_name_id LIMIT `;
+    let fetchQuery = `SELECT * FROM ${config.source.openmrsDb}.person_name WHERE ` +
+            `person_id NOT IN ${toExclude} AND uuid NOT IN (SELECT uuid from ${config.destination.openmrsDb}.person_name) order by person_name_id LIMIT `;
 
     let startingRecord = 0;
     let dynamicQuery = fetchQuery + `${startingRecord}, ${BATCH_SIZE}`;
@@ -674,12 +715,12 @@ async function movePersons(srcConn, destConn, srcUserId) {
         let toExclude = '(' + global.excludedPersonIds.join(',') + ')';
 
         let countCondition = `creator = ${srcUserId} AND person_id NOT IN ${toExclude}`;
-        let personsToMoveCount = await getPersonsCount(srcConn, countCondition);
+        let personsToMoveCount = await getPersonsCountIgnoreDuplicateUuids(srcConn, countCondition);
 
         // Get all person created by srcUserId in SRC database
         let startingRecord = 0;
-        let personFetchQuery = `SELECT * FROM person WHERE creator = ${srcUserId}` +
-            ` and person_id NOT IN ${toExclude} order by date_created limit `;
+        let personFetchQuery = `SELECT * FROM ${config.source.openmrsDb}.person WHERE creator = ${srcUserId}` +
+            ` and person_id NOT IN ${toExclude} AND uuid NOT IN (SELECT uuid FROM ${config.destination.openmrsDb}.person) order by date_created limit `;
         let temp = personsToMoveCount;
         let moved = 0;
         let queryLogged = false;
@@ -727,13 +768,12 @@ async function moveUsers(srcConn, destConn, creatorId) {
     let [insertStmt, nextId] = [undefined, -1];
     try {
         let toExclude = '(' + global.excludedUsersIds.join(',') + ')';
-        let condition = `creator=${creatorId} AND user_id NOT IN ${toExclude}`;
+        let condition = `creator=${creatorId} AND user_id NOT IN ${toExclude} AND uuid NOT IN (SELECT uuid FROM ${config.destination.openmrsDb}.users)`;
         let nextUserId = await utils.getNextAutoIncrementId(destConn, 'users');
-        let usersToMoveCount = await getUsersCount(srcConn, condition);
+        let usersToMoveCount = await getUsersCountIgnoreDuplicateUuids(srcConn, condition);
 
         let startingRecord = 0;
-        let userFetchQuery = 'SELECT * FROM users WHERE ' + condition +
-            ' order by date_changed, date_created LIMIT ';
+        let userFetchQuery = `SELECT * FROM ${config.source.openmrsDb}.users WHERE ${condition} order by date_changed, date_created LIMIT `;
 
         let temp = usersToMoveCount;
         let moved = 0
@@ -829,8 +869,8 @@ async function updateUsersPersonIds(connection, idMap) {
 
 async function updateAuditInfoForPersons(srcConn, destConn) {
     //At this point the beehive.personMap is already populated
-    let countQuery = `SELECT count(*) as 'count' FROM person WHERE changed_by IS NOT ` +
-                `NULL OR voided_by IS NOT NULL`;
+    let countQuery = `SELECT count(*) as 'count' FROM ${config.source.openmrsDb}.person WHERE (changed_by IS NOT ` +
+                `NULL OR voided_by IS NOT NULL) AND uuid NOT IN (SELECT uuid FROM ${config.destination.openmrsDb}.person)`;
 
     let queryParts = 'SELECT person_id, changed_by, voided_by FROM person ' +
                      'WHERE changed_by IS NOT NULL OR voided_by IS NOT NULL LIMIT ';
@@ -891,9 +931,9 @@ async function updateAuditInfoForPersons(srcConn, destConn) {
 async function updateAuditInfoForUsers(srcConn, destConn) {
     //At this point the beehive.personMap is already populated
     let toExclude = '(' + global.excludedUsersIds.join(',') + ')';
-    let countQuery = `SELECT count(*) as 'count' FROM users ` +
+    let countQuery = `SELECT count(*) as 'count' FROM ${config.source.openmrsDb}.users ` +
                 `WHERE (changed_by IS NOT NULL OR retired_by IS NOT NULL) ` +
-                `AND user_id NOT IN ${toExclude}`;
+                `AND user_id NOT IN ${toExclude} AND uuid NOT IN (SELECT uuid FROM ${config.destination.openmrsDb}.users)`;
 
     let queryParts = 'SELECT user_id, changed_by, retired_by FROM users ' +
                 'WHERE (changed_by IS NOT NULL OR retired_by IS NOT NULL) ' +
@@ -954,13 +994,13 @@ async function updateAuditInfoForUsers(srcConn, destConn) {
 
 async function main(srcConn, destConn) {
     utils.logInfo('Fetching users count from source & destination...');
-    const srcUsersCount = await getUsersCount(srcConn);
+    const srcUsersCount = await getUsersCountIgnoreDuplicateUuids(srcConn);
     const initialDestUsersCount = await getUsersCount(destConn);
 
     let countCondition = 'person_id NOT IN (' + global.excludedPersonIds.join(',') + ')';
-    const srcPersonCount = await getPersonsCount(srcConn, countCondition);
+    const srcPersonCount = await getPersonsCountIgnoreDuplicateUuids(srcConn, countCondition);
     const initialDestPersonCount = await getPersonsCount(destConn);
-
+    
     utils.logInfo(`${logTime()}: Starting to move persons & users...`);
     utils.logInfo(`Number of persons in source db: ${srcPersonCount}`);
     utils.logInfo(`Number of users in source db: ${srcUsersCount}`);

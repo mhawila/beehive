@@ -7,7 +7,7 @@ let obsWithTheirGroupNotUpdated = {};
 let obsWithPreviousNotUpdated = {};
 
 function prepareObsInsert(rows, nextId) {
-  let insert = 'INSERT INTO obs(obs_id, person_id, concept_id, encounter_id, '
+  let insert = 'INSERT IGNORE INTO obs(obs_id, person_id, concept_id, encounter_id, '
         + 'order_id, obs_datetime, location_id, obs_group_id, accession_number, '
         + 'value_group_id, value_coded, value_coded_name_id, '
         + 'value_drug, value_datetime, value_numeric, value_modifier, '
@@ -69,8 +69,12 @@ function prepareObsInsert(rows, nextId) {
 }
 
 async function moveObs(srcConn, destConn) {
-  return await moveAllTableRecords(srcConn, destConn, 'obs', 'date_created',
-                  prepareObsInsert);
+    let condition = null;
+    if(global.excludedObsIds.length > 0) {
+        condition = `obs_id NOT IN (${global.excludedObsIds.join(',')})`;
+    }
+    return await moveAllTableRecords(srcConn, destConn, 'obs', 'date_created',
+                  prepareObsInsert, condition);
 }
 
 async function updateObsPreviousOrGroupId(connection, idMap, field) {
@@ -96,7 +100,7 @@ async function updateObsPreviousOrGroupId(connection, idMap, field) {
 
 module.exports = async function(srcConn, destConn) {
     utils.logInfo('Moving obs...');
-    let srcObsCount = await utils.getCount(srcConn, 'obs');
+    let srcObsCount = await utils.getCountIgnoringDestinationDuplicateUuids(srcConn, 'obs');
     let initialDestCount = await utils.getCount(destConn, 'obs');
     let expectedFinalCount = initialDestCount + srcObsCount;
 

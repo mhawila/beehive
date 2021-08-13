@@ -6,7 +6,7 @@ let consolidateTableRecords = utils.consolidateRecords;
 let beehive = global.beehive;
 
 function prepareProviderInsert(rows, nextId) {
-    let insert = 'INSERT INTO provider(provider_id, person_id, name, identifier, ' +
+    let insert = 'INSERT IGNORE INTO provider(provider_id, person_id, name, identifier, ' +
         'creator, date_created, changed_by, date_changed, retired, retired_by, ' +
         'date_retired, retire_reason, uuid) VALUES ';
 
@@ -75,7 +75,7 @@ function prepareProviderAttributeTypeInsert(rows, nextId) {
 }
 
 function prepareProviderAttributeInsert(rows, nextId) {
-    let insert = 'INSERT INTO provider_attribute(provider_attribute_id, ' +
+    let insert = 'INSERT IGNORE INTO provider_attribute(provider_attribute_id, ' +
         'provider_id, attribute_type_id, value_reference, creator, ' +
         'date_created, changed_by, date_changed, voided, voided_by, ' +
         'date_voided, void_reason, uuid) VALUES ';
@@ -146,7 +146,6 @@ async function moveProviderAttributes(srcConn, destConn) {
 }
 
 async function main(srcConn, destConn) {
-    let srcProvCount = await utils.getCount(srcConn, 'provider');
     let initialDestCount = await utils.getCount(destConn, 'provider');
 
     utils.logInfo('Moving providers...');

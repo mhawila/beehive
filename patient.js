@@ -72,7 +72,7 @@ function prepareIdentifierTypeInsert(rows, nextId) {
 }
 
 function preparePatientIdentifierInsert(rows, nextId) {
-    let insert = 'INSERT INTO patient_identifier(patient_identifier_id, patient_id, ' +
+    let insert = 'INSERT IGNORE INTO patient_identifier(patient_identifier_id, patient_id, ' +
         'identifier, identifier_type, preferred, location_id, creator, ' +
         'date_created, voided, voided_by, date_voided, void_reason, uuid, ' +
         'date_changed, changed_by) VALUES ';
@@ -137,17 +137,33 @@ async function consolidatePatientIdentifierTypes(srcConn, destConn) {
 }
 
 async function movePatients(srcConn, destConn) {
-    let toExclude = '(' + global.excludedPersonIds.join(',') + ')';
-    let condition = `patient_id NOT IN ${toExclude}`;
-    return await moveAllTableRecords(srcConn, destConn, 'patient', 'patient_id',
-        preparePatientInsert, condition);
+    let condition = patientCopyCondition();
+    if(condition !== null) {
+        return await moveAllTableRecords(srcConn, destConn, 'patient', 'patient_id', preparePatientInsert, condition);
+    }
+    return 0;
 }
 
 async function movePatientIdentifiers(srcConn, destConn) {
-    let toExclude = '(' + global.excludedPersonIds.join(',') + ')';
-    let condition = `patient_id NOT IN ${toExclude}`;
-    return await moveAllTableRecords(srcConn, destConn, 'patient_identifier',
-        'patient_identifier_id', preparePatientIdentifierInsert, condition);
+    let condition = patientCopyCondition();
+    if(condition !== null) {
+        return await moveAllTableRecords(srcConn, destConn, 'patient_identifier',
+            'patient_identifier_id', preparePatientIdentifierInsert, condition);
+    }
+    return 0;    
+}
+
+function patientCopyCondition() {
+    let personIdsMoved = [];
+    global.beehive.personMap.forEach((destPersonId, srcPersonId) => {
+        if(!global.excludedPersonIds.includes(srcPersonId)) {
+            personIdsMoved.push(srcPersonId);
+        }
+    });
+    if(personIdsMoved.length > 0) {
+        return `patient_id IN (${personIdsMoved.join(',')})`;
+    }
+    return null;
 }
 
 async function main(srcConn, destConn) {

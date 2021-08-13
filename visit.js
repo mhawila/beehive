@@ -37,7 +37,7 @@ function prepareVisitTypeInsert(rows, nextId) {
 }
 
 function prepareVisitInsert(rows, nextId) {
-  let insert = 'INSERT INTO visit(visit_id, patient_id, visit_type_id, '
+  let insert = 'INSERT IGNORE INTO visit(visit_id, patient_id, visit_type_id, '
         + 'date_started, date_stopped, indication_concept_id, location_id, '
         + 'creator, date_created, changed_by, date_changed, voided, voided_by, '
         + 'date_voided, void_reason, uuid) VALUES ';
@@ -102,8 +102,12 @@ async function consolidateVisitTypes(srcConn, destConn) {
 }
 
 async function moveVisits(srcConn, destConn) {
+  let condition = null;
+  if(global.excludedVisitIds.length > 0) {
+      condition = `visit_id NOT IN (${global.excludedVisitIds.join(',')})`;
+  }
   return await moveAllTableRecords(srcConn, destConn, 'visit', 'visit_id',
-                  prepareVisitInsert);
+                  prepareVisitInsert, condition);
 }
 
 async function main(srcConn, destConn) {
@@ -111,7 +115,7 @@ async function main(srcConn, destConn) {
     await consolidateVisitTypes(srcConn, destConn);
     utils.logOk('Ok...');
 
-    let srcVisitCount = await utils.getCount(srcConn, 'visit');
+    let srcVisitCount = await utils.getCountIgnoringDestinationDuplicateUuids(srcConn, 'visit');
     let initialDestCount = await utils.getCount(destConn, 'visit');
 
     utils.logInfo('Moving visits...');

@@ -48,6 +48,8 @@ async function doWork(connection, schema) {
         'relationship_type',
         'patient_identifier_type',
         'program',
+        'patient_program',
+        'patient_state',
         'program_workflow',
         'program_workflow_state',
         'gaac',
@@ -73,7 +75,7 @@ async function doWork(connection, schema) {
         `AND referenced_column_name IS NOT NULL ` +
         `AND table_name IN (${inClauseList})`;
 
-    utils.logDebug(`Query to get tables to for foreign key integrity checks`);
+    utils.logDebug(`Query to get tables for foreign key integrity checks`);
     utils.logDebug(query);
 
     let [tablesInfo] = await connection.query(query);

@@ -12,7 +12,7 @@ beehive.patientProgramMap = new Map();
 beehive.programWorkflowStateMap = new Map();
 
 function prepareProgramInsert(rows, nextId) {
-    let insert = 'INSERT INTO program(program_id, concept_id, creator, ' +
+    let insert = 'INSERT IGNORE INTO program(program_id, concept_id, creator, ' +
             'date_created, changed_by, date_changed, retired, name, ' +
             'description, uuid, outcomes_concept_id) VALUES ';
 
@@ -41,7 +41,7 @@ function prepareProgramInsert(rows, nextId) {
 }
 
 function prepareProgramWorkflowInsert(rows, nextId) {
-    let insert = 'INSERT INTO program_workflow(program_workflow_id, ' +
+    let insert = 'INSERT IGNORE INTO program_workflow(program_workflow_id, ' +
             'program_id, concept_id, creator, date_created, retired, ' +
             'changed_by, date_changed, uuid) VALUES ';
 
@@ -70,7 +70,7 @@ function prepareProgramWorkflowInsert(rows, nextId) {
 }
 
 function prepareProgramWorkflowStateInsert(rows, nextId) {
-    let insert = 'INSERT INTO program_workflow_state(program_workflow_state_id, ' +
+    let insert = 'INSERT IGNORE INTO program_workflow_state(program_workflow_state_id, ' +
         'program_workflow_id, ' +
         'concept_id, initial, terminal, creator, date_created, retired, ' +
         'changed_by, date_changed, uuid) VALUES ';
@@ -101,7 +101,7 @@ function prepareProgramWorkflowStateInsert(rows, nextId) {
 }
 
 function preparePatientProgramInsert(rows, nextId) {
-    let insert = 'INSERT INTO patient_program(patient_program_id, patient_id, ' +
+    let insert = 'INSERT IGNORE INTO patient_program(patient_program_id, patient_id, ' +
         'program_id, ' +
         'date_enrolled, date_completed, creator, date_created, changed_by, ' +
         'date_changed, voided, voided_by, date_voided, void_reason, uuid, ' +
@@ -145,7 +145,7 @@ function preparePatientProgramInsert(rows, nextId) {
 }
 
 function preparePatientStateInsert(rows) {
-    let insert = 'INSERT INTO patient_state(patient_program_id, state, ' +
+    let insert = 'INSERT IGNORE INTO patient_state(patient_program_id, state, ' +
             'start_date, end_date, creator, date_created, changed_by, ' +
             'date_changed, voided, voided_by, date_voided, void_reason, ' +
             'uuid) VALUES ';

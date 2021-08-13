@@ -2,6 +2,11 @@
     global.beehive = {};
     global.excludedPersonIds = [];
     global.excludedUsersIds = [];
+    global.excludedEncounterIds = [];
+    global.excludedLocationIds = [];
+    global.excludedProviderIds = [];
+    global.excludedVisitIds = [];
+    global.excludedObsIds = [];
     const utils = require('./utils');
     const stringValue = utils.stringValue;
 
@@ -29,11 +34,16 @@
 
     // Use Object literal for obsMap to avoid the Map's number of entries hard limit of 16777216
     // Object literal has more than 100 million hard limit on the number of keys.
-    global.beehive['obsMap'] = {};
-
-    //Add admin person_id mapping it to 1
-    global.beehive.personMap.set(1,1);
-
+    // Also make the obsMap consintent with Map API
+    global.beehive['obsMap'] = {
+        set: function(key, value) {
+            this[key] = value;
+        },
+        get: function(key) {
+            return this[key];
+        }
+    };
+    
     async function _sourceAlreadyExists(connection, source) {
         let query = 'SELECT source FROM beehive_merge_source where source = ' +
             `'${source}'`;
@@ -77,8 +87,9 @@
                 }
             }
         }
-        // prepare the excluded person_ids
-        await _usersAndAssociatedPersonsToExclude(srcConn, destConn);
+        
+        // Prepare exclude ids, map the excluded ids to their destination counterparts.
+        await _prepareForDryRun(srcConn, destConn, config);
     }
 
     function _createMapTable(tableSuffix) {
@@ -160,9 +171,48 @@
         });
     }
 
+    async function _mapSameUuidsUsers(connection, config) {
+        let query = `SELECT u1.user_id source_user_id, u1.person_id source_person_id, `
+            + `u2.user_id dest_user_id, u2.person_id dest_person_id  `
+            + `FROM ${config.source.openmrsDb}.users u1 INNER JOIN ${config.destination.openmrsDb}.users u2 using(uuid)`;
+        try {
+            let [records] = await connection.query(query);
+            records.forEach(record => {
+                global.beehive.userMap.set(record['source_user_id'], record['dest_user_id']);
+                global.beehive.personMap.set(record['source_person_id'], record['dest_person_id']);
+                global.excludedPersonIds.push(record['source_person_id']);
+            });
+        } catch(trouble) {
+            utils.logError('Error while mapping ignored users (due to same uuids between source and destination)');
+            utils.logError(`Query during error: ${query}`);
+            throw trouble;
+        }
+    }
+
+    async function _prepareForDryRun(srcConn, destConn, config) {
+        // prepare the excluded person_ids
+        await _usersAndAssociatedPersonsToExclude(srcConn, destConn);
+
+        // Create mappings for records with same uuids for some tables.
+        let neededTables = [
+            { table: 'person', column: 'person_id', map: global.beehive.personMap, excluded: global.excludedPersonIds },
+            { table: 'location', column: 'location_id', map: global.beehive.locationMap, excluded: global.excludedLocationIds },
+            { table: 'encounter', column: 'encounter_id', map: global.beehive.encounterMap, excluded: global.excludedEncounterIds },
+            { table: 'provider', column: 'provider_id', map: global.beehive.providerMap, excluded: global.excludedProviderIds },
+            { table: 'visit', column: 'visit_id', map: global.beehive.visitMap, excluded: global.excludedVisitIds },
+            { table: 'obs', column: 'obs_id', map: global.beehive.obsMap, excluded: global.excludedObsIds },
+        ];
+
+        await _mapSameUuidsUsers(srcConn, config);
+
+        for(let neededTable of neededTables) {
+            await utils.mapSameUuidsRecords(srcConn, neededTable.table, neededTable.column, neededTable.map, neededTable.excluded);
+        }
+    }
+
     module.exports = {
         prepare: prepareForNewSource,
         insertSource: _insertSource,
-        prepareForDryRun: _usersAndAssociatedPersonsToExclude
+        prepareForDryRun: _prepareForDryRun,
     };
 })();

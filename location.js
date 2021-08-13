@@ -1,16 +1,12 @@
 const utils = require('./utils');
-const logLog = utils.logLog;
 const logError = utils.logError;
-const logTime = utils.logTime;
 const strValue = utils.stringValue;
-const getCount = utils.getCount;
-const moveAllTableRecords = utils.moveAllTableRecords;
 
 let beehive = global.beehive;
 let notYetUpdatedWithParentLocations = new Map();
 
 function prepareLocationInsert(rows, nextId) {
-    let insert = 'INSERT INTO location(location_id, name, description, address1, ' +
+    let insert = 'INSERT IGNORE INTO location(location_id, name, description, address1, ' +
         'address2, city_village, state_province, postal_code, country, latitude, ' +
         'longitude, creator, date_created, county_district, address3, address6, ' +
         'address5, address4, retired, retired_by, date_retired, retire_reason, ' +

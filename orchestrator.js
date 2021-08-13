@@ -1,7 +1,6 @@
 'use strict';
 const connection = require('./connection').connection;
 const preparation = require('./preparation');
-const uuidChecks = require('./uuid-checks');
 const integrityChecks = require('./integrity-checks');
 const prepare = preparation.prepare;
 const insertSource = preparation.insertSource;
@@ -53,7 +52,7 @@ async function orchestration() {
 
         if(dryRun) {
             utils.logInfo(logTime(), ': Partial preparation for DRY run');
-            await preparation.prepareForDryRun(srcConn,destConn);
+            await preparation.prepareForDryRun(srcConn, destConn, config);
         } else {
             utils.logInfo(logTime(), ': Preparing destination database...');
             await prepare(srcConn,destConn, config);
@@ -61,9 +60,6 @@ async function orchestration() {
 
         utils.logInfo(logTime(), ': Checking for Orphaned Records');
         await integrityChecks(srcConn, config.source.openmrsDb);
-
-        utils.logInfo(logTime(), ': Ensuring uniqueness of UUIDs');
-        await uuidChecks(srcConn, destConn, dryRun, true);
 
         utils.logInfo(logTime(), ': Starting data migration ...');
         destConn.query('START TRANSACTION');
