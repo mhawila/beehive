@@ -35,6 +35,18 @@ let getCount = async function(connection, table, condition) {
     return results[0]['table_count'];
 }
 
+let getCountIgnoringDestinationDuplicateUuids = async function(connection, table, condition) {
+    let countQuery = `SELECT count(*) as table_count FROM ${config.source.openmrsDb}.${table}`;
+    if (condition) {
+        countQuery += ' WHERE ' + condition + ` AND uuid NOT IN (SELECT uuid FROM ${config.destination.openmrsDb}.${table})`;
+    } else {
+        countQuery += ` WHERE uuid NOT IN (SELECT uuid FROM ${config.destination.openmrsDb}.${table})`;
+    }
+
+    let [results] = await connection.query(countQuery);
+    return results[0]['table_count'];
+}
+
 let formatDate = function(d, format) {
     //some how undefined is parsed by moment!!!!
     if (d == undefined) return null;
@@ -156,12 +168,14 @@ let consolidateTableRecords = async function(srcConn, destConn, table,
  * @param tableName:String Name of table whose records are to be moved.
  * @param orderColumn:String Name of the column to order records with.
  * @param insertQueryPrepareFunction: function prepares the insert query
+ * @param condition: String, an sql condition that is appended to count & fetch queries.
  * @return count of records moved. (or a promise that resolves to count)
  */
 let moveAllTableRecords = async function(srcConn, destConn, tableName, orderColumn,
     insertQueryPrepareFunction, condition) {
     // Get the count to be pushed
     let countToMove = await getCount(srcConn, tableName, condition);
+    
     let nextAutoIncr = await getNextAutoIncrementId(destConn, tableName);
 
     let fetchQuery = `SELECT * FROM ${tableName} `;
@@ -259,9 +273,33 @@ async function personIdsToexclude(connection) {
     return ids.map(id => id['person_id']);
 }
 
+/**
+ * Utility function that creating the mapping records that share same UUIDs between source and destination
+ * @param {MySQLConnectin} connection 
+ * @param {String} table 
+ * @param {String} column 
+ * @param {Map} map 
+ */
+async function mapSameUuidsRecords(connection, table, column, map, arrayOfExcludedIds) {
+    let query = `SELECT t1.${column} source_value, t2.${column} dest_value `
+        + `FROM ${config.source.openmrsDb}.${table} t1 INNER JOIN ${config.destination.openmrsDb}.${table} t2 using(uuid)`;
+    try {
+        let [records] = await connection.query(query);
+        records.forEach(record => {
+            map.set(record['source_value'], record['dest_value']);
+            arrayOfExcludedIds.push(record['source_value']);
+        });
+    } catch(trouble) {
+        logError(`Error while mapping same uuids records for table ${table}`);
+        logError(`Query during error: ${query}`);
+        throw trouble;
+    }
+}
+
 module.exports = {
     getNextAutoIncrementId: getNextAutoIncrementId,
     getCount: getCount,
+    getCountIgnoringDestinationDuplicateUuids: getCountIgnoringDestinationDuplicateUuids,
     stringValue: stringValue,
     moveAllTableRecords: moveAllTableRecords,
     formatDate: formatDate,
@@ -275,5 +313,6 @@ module.exports = {
     consolidateRecords: consolidateTableRecords,
     personIdsToexclude: personIdsToexclude,
     addDecimalNumbers: addDecimalNumbers,
-    subtractDecimalNumbers: subtractDecimalNumbers
+    subtractDecimalNumbers: subtractDecimalNumbers,
+    mapSameUuidsRecords: mapSameUuidsRecords
 };

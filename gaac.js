@@ -9,9 +9,10 @@ let beehive = global.beehive;
 beehive.gaacMap = new Map();
 beehive.gaacAffinityTypeMap = new Map();
 beehive.gaacReasonLeavingTypeMap = new Map();
+beehive.excludedGaacIds = [];
 
 function _prepareGaacTypeInsertTemplate(rows, nextId, type, typeMap) {
-  let insert = `INSERT INTO gaac_${type}_type(gaac_${type}_type_id, name, ` +
+  let insert = `INSERT IGNORE INTO gaac_${type}_type(gaac_${type}_type_id, name, ` +
         'description, creator, date_created, retired, retired_by,' +
         'date_retired, retire_reason, uuid) VALUES ';
 
@@ -51,7 +52,7 @@ function prepareGaacReasonLeavingTypeInsert(rows, nextId) {
 }
 
 function prepareGaacInsert(rows, nextId) {
-    let insert = 'INSERT INTO gaac(gaac_id, name, description, ' +
+    let insert = 'INSERT IGNORE INTO gaac(gaac_id, name, description, ' +
             'gaac_identifier, start_date, end_date, focal_patient_id, ' +
             'affinity_type, location_id, crumbled, reason_crumbled, ' +
             'date_crumbled, creator, date_created, changed_by, date_changed, ' +
@@ -98,7 +99,7 @@ function prepareGaacInsert(rows, nextId) {
 }
 
 function prepareGaacMemberInsert(rows) {
-    let insert = 'INSERT INTO gaac_member(gaac_id, member_id, start_date, ' +
+    let insert = 'INSERT IGNORE INTO gaac_member(gaac_id, member_id, start_date, ' +
             'end_date, reason_leaving_type, description, leaving, restart, ' +
             'restart_date, creator, date_created, changed_by, date_changed, ' +
             'voided, voided_by, date_voided, void_reason, uuid) VALUES ';
@@ -148,6 +149,10 @@ async function consolidateGaacReasonLeavingTypes(srcConn, destConn) {
 }
 
 async function moveGaacs(srcConn, destConn) {
+    let condition = null;
+    if(beehive.excludedGaacIds.length > 0) {
+        condition = `gaac_id NOT IN (${global.excludedGaacIds.join(',')})`;
+    }
     return await moveAllTableRecords(srcConn, destConn, 'gaac', 'gaac_id',
                     prepareGaacInsert);
 }
@@ -167,7 +172,10 @@ async function main(srcConn, destConn) {
         utils.logInfo('No gaac tables found');
         return;
     }
-
+    
+    // Map same uuid records in gaac tables between source and destination
+    await utils.mapSameUuidsRecords(srcConn, 'gaac', 'gaac_id', beehive.gaacMap, beehive.excludedGaacIds);
+    
     utils.logInfo('Consolidating GAAC Affinity types...');
     let moved = await consolidateGaacAffinityTypes(srcConn, destConn);
     utils.logOk(`Ok...${moved} records from gaac_affinity_type moved`);
