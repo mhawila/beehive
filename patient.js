@@ -131,8 +131,16 @@ async function consolidatePatientIdentifierTypes(srcConn, destConn) {
             await utils.getNextAutoIncrementId(destConn, 'patient_identifier_type');
 
         let [sql] = prepareIdentifierTypeInsert(missingInDest, nextPatIdTypeId);
-        utils.logDebug('patient_identifier_type insert statement:\n', query);
-        let [result] = await destConn.query(sql);
+        try {
+            await destConn.query(sql);
+        } catch(ex) {
+            utils.logError('Error: While consolidating patient identifier types');
+            if(sql) {
+                utils.logError('SQL statement during error:');
+                utils.logError(sql);
+            }
+            throw ex;
+        }
     }
 }
 
