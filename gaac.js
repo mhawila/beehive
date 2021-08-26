@@ -151,10 +151,10 @@ async function consolidateGaacReasonLeavingTypes(srcConn, destConn) {
 async function moveGaacs(srcConn, destConn) {
     let condition = null;
     if(beehive.excludedGaacIds.length > 0) {
-        condition = `gaac_id NOT IN (${global.excludedGaacIds.join(',')})`;
+        condition = `gaac_id NOT IN (${beehive.excludedGaacIds.join(',')})`;
     }
     return await moveAllTableRecords(srcConn, destConn, 'gaac', 'gaac_id',
-                    prepareGaacInsert);
+                    prepareGaacInsert, condition);
 }
 
 async function moveGaacMembers(srcConn, destConn) {

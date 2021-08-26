@@ -193,8 +193,10 @@
 
     async function _prepareForDryRun(srcConn, destConn, config) {
         // prepare the excluded person_ids
+        utils.logInfo('Calculating users and persons to be excluded...');
         await _usersAndAssociatedPersonsToExclude(srcConn, destConn);
 
+        utils.logInfo('Determining records already copied (criterion is similar UUID)...');
         // Create mappings for records with same uuids for some tables.
         let neededTables = [
             { table: 'person', column: 'person_id', map: global.beehive.personMap, excluded: global.excludedPersonIds },

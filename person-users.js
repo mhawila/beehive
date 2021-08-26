@@ -154,6 +154,7 @@ function prepareRelationshipTypeInsert(rows, nextId) {
             toBeinserted += ',';
         }
         let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
+        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
         toBeinserted += `(${nextId}, ${strValue(row['a_is_to_b'])}, ` +
             `${strValue(row['b_is_to_a'])}, ${row['preferred']}, ${row['weight']}, ` +
             `${strValue(row['description'])}, ${beehive.userMap.get(row['creator'])}, ` +
@@ -499,7 +500,8 @@ async function consolidateRelationshipTypes(srcConn, destConn) {
     sRelshipTypes.forEach(sRelshipType => {
         let match = dRelshipTypes.find(dRelshipType => {
             return (sRelshipType['a_is_to_b'] === dRelshipType['a_is_to_b'] &&
-                sRelshipType['b_is_to_a'] === dRelshipType['b_is_to_a']);
+                sRelshipType['b_is_to_a'] === dRelshipType['b_is_to_a'] ||
+                sRelshipType['uuid'] === dRelshipType['uuid']);
         });
         if (match !== undefined) {
             beehive.relationshipTypeMap.set(sRelshipType['relationship_type_id'],
@@ -513,7 +515,16 @@ async function consolidateRelationshipTypes(srcConn, destConn) {
             await utils.getNextAutoIncrementId(destConn, 'relationship_type');
 
         let [stmt] = prepareRelationshipTypeInsert(toAdd, nextRelationshipTypeId);
-        await destConn.query(stmt);
+        try {
+            await destConn.query(stmt);
+        } catch(ex) {
+            utils.logError('Error: While consolidating relationship types');
+            if(stmt) {
+                utils.logError('SQL statement during error:');
+                utils.logError(stmt);
+            }
+            throw ex;
+        }
     }
 }
 
@@ -1057,7 +1068,7 @@ async function main(srcConn, destConn) {
         await updateMovedUsersRoles(srcConn, destConn);
         utils.logOk('Ok...');
 
-        utils.logInfo('Upate moved persons relationships...');
+        utils.logInfo('Update moved persons relationships...');
         await consolidateRelationshipTypes(srcConn, destConn);
         await moveRelationships(srcConn, destConn);
         utils.logOk('Ok...');
