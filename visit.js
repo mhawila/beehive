@@ -44,29 +44,34 @@ function prepareVisitInsert(rows, nextId) {
 
   let toBeinserted = '';
   rows.forEach(row => {
-    if(toBeinserted.length > 1) {
-      toBeinserted += ',';
+    if(!global.excludedVisitIds.includes(row['visit_id'])) {
+      if(toBeinserted.length > 1) {
+        toBeinserted += ',';
+      }
+      let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
+      let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+      let location = row['location_id'] === null ? null : beehive.locationMap.get(row['location_id']);
+
+      beehive.visitMap.set(row['visit_id'], nextId);
+
+      toBeinserted += `(${nextId}, ${beehive.personMap.get(row['patient_id'])}, `
+          + `${beehive.visitTypeMap.get(row['visit_type_id'])}, `
+          + `${strValue(utils.formatDate(row['date_started']))}, `
+          + `${strValue(utils.formatDate(row['date_stopped']))}, `
+          + `${row['indication_concept_id']}, ${location}, `
+          + `${beehive.userMap.get(row['creator'])}, `
+          + `${strValue(utils.formatDate(row['date_created']))}, `
+          + `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}, `
+          + `${row['voided']}, ${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, `
+          + `${strValue(row['void_reason'])}, ${utils.uuid(row['uuid'])})`
+
+      nextId++;
     }
-    let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
-    let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
-    let location = row['location_id'] === null ? null : beehive.locationMap.get(row['location_id']);
-
-    beehive.visitMap.set(row['visit_id'], nextId);
-
-    toBeinserted += `(${nextId}, ${beehive.personMap.get(row['patient_id'])}, `
-        + `${beehive.visitTypeMap.get(row['visit_type_id'])}, `
-        + `${strValue(utils.formatDate(row['date_started']))}, `
-        + `${strValue(utils.formatDate(row['date_stopped']))}, `
-        + `${row['indication_concept_id']}, ${location}, `
-        + `${beehive.userMap.get(row['creator'])}, `
-        + `${strValue(utils.formatDate(row['date_created']))}, `
-        + `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}, `
-        + `${row['voided']}, ${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, `
-        + `${strValue(row['void_reason'])}, ${utils.uuid(row['uuid'])})`
-
-    nextId++;
   });
 
+  if(toBeinserted === '') {
+    return [null, nextId];
+  }
   let insertStatement = insert + toBeinserted;
   return [insertStatement, nextId];
 }

@@ -107,26 +107,32 @@ function prepareEncounterInsert(rows, nextId) {
 
     let toBeinserted = '';
     rows.forEach(row => {
-        if (toBeinserted.length > 1) {
-            toBeinserted += ',';
+        if(!global.excludedEncounterIds.includes(row['encounter_id'])) {
+            if (toBeinserted.length > 1) {
+                toBeinserted += ',';
+            }
+            let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
+            let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+            let visitId = row['visit_id'] === null ? null : beehive.visitMap.get(row['visit_id']);
+            beehive.encounterMap.set(row['encounter_id'], nextId);
+
+            toBeinserted += `(${nextId}, ${beehive.encounterTypeMap.get(row['encounter_type'])}, ` +
+                `${beehive.personMap.get(row['patient_id'])}, ` +
+                `${beehive.locationMap.get(row['location_id'])}, ${row['form_id']}, ` +
+                `${visitId}, ${strValue(utils.formatDate(row['encounter_datetime']))}, ` +
+                `${beehive.userMap.get(row['creator'])}, ` +
+                `${strValue(utils.formatDate(row['date_created']))}, ` +
+                `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}, ` +
+                `${row['voided']}, ${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, ` +
+                `${strValue(row['void_reason'])}, ${utils.uuid(row['uuid'])})`
+
+            nextId++;
         }
-        let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
-        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
-        let visitId = row['visit_id'] === null ? null : beehive.visitMap.get(row['visit_id']);
-        beehive.encounterMap.set(row['encounter_id'], nextId);
-
-        toBeinserted += `(${nextId}, ${beehive.encounterTypeMap.get(row['encounter_type'])}, ` +
-            `${beehive.personMap.get(row['patient_id'])}, ` +
-            `${beehive.locationMap.get(row['location_id'])}, ${row['form_id']}, ` +
-            `${visitId}, ${strValue(utils.formatDate(row['encounter_datetime']))}, ` +
-            `${beehive.userMap.get(row['creator'])}, ` +
-            `${strValue(utils.formatDate(row['date_created']))}, ` +
-            `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}, ` +
-            `${row['voided']}, ${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, ` +
-            `${strValue(row['void_reason'])}, ${utils.uuid(row['uuid'])})`
-
-        nextId++;
     });
+
+    if(toBeinserted === '') {
+        return [null, nextId];
+    }
 
     let insertStatement = insert + toBeinserted;
     return [insertStatement, nextId];
