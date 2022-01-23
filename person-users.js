@@ -384,11 +384,11 @@ function prepareUserRoleInsert(rows) {
     let insert = 'INSERT IGNORE INTO user_role(user_id, role) VALUES ';
     let toBeinserted = '';
     rows.forEach(row => {
-        if (toBeinserted.length > 1) {
-            toBeinserted += ',';
-        }
         let userId = beehive.userMap.get(row['user_id']);
         if (userId) {
+            if (toBeinserted.length > 1) {
+                toBeinserted += ',';
+            }
             toBeinserted += `(${userId}, ${strValue(row['role'])})`;
         }
     });
@@ -443,15 +443,37 @@ async function consolidateRolesAndPrivileges(srcConn, destConn) {
     //Insert role_privileges (insert ignore)
     let [rps] = await srcConn.query('SELECT * FROM role_privilege');
     if (rps.length > 0) {
-        let stmt = prepareRolePrivilegeInsert(rps);
-        await destConn.query(stmt);
+        let stmt;
+        try {
+            stmt = prepareRolePrivilegeInsert(rps);
+            await destConn.query(stmt);
+        }
+        catch(ex) {
+            utils.logError(`An error occured when consolidating role_privilege table`);
+            if(stmt) {
+                utils.logError('Statement During error:');
+                utils.logError(stmt);
+            }
+            throw ex;
+        }
     }
 
     //Do the same sh*t for role_role
     let [rrs] = await srcConn.query('SELECT * FROM role_role');
     if (rrs.length > 0) {
-        let stmt = prepareRoleRoleInsert(rrs);
-        await destConn.query(stmt);
+        let stmt;
+        try {
+            stmt = prepareRoleRoleInsert(rrs);
+            await destConn.query(stmt);
+        }
+        catch(ex) {
+            utils.logError(`An error occured when consolidating role_role table`);
+            if(stmt) {
+                utils.logError('Statement During error:');
+                utils.logError(stmt);
+            }
+            throw ex;
+        }
     }
 }
 
@@ -554,8 +576,20 @@ async function updateMovedUsersRoles(srcConn, destConn) {
     let query = `SELECT * FROM user_role WHERE user_id NOT IN ${excluded}`;
     let [rows] = await srcConn.query(query);
     if (rows.length > 0) {
-        let insert = prepareUserRoleInsert(rows);
-        let [result] = await destConn.query(insert);
+        let insert;
+        try {
+            insert = prepareUserRoleInsert(rows);
+            utils.logDebug('INSERT STATEMENT: ', insert);
+            let [result] = await destConn.query(insert);
+        }
+        catch(ex) {
+            utils.logError(`An error occured when updating moved user roles`);
+            if(insert) {
+                utils.logError('Statement During error:');
+                utils.logError(insert);
+            }
+            throw ex;
+        }
     }
 }
 
