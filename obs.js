@@ -13,7 +13,7 @@ function prepareObsInsert(rows, nextId) {
         + 'value_drug, value_datetime, value_numeric, value_modifier, '
         + 'value_text, value_complex, comments, previous_version, creator, '
         + 'date_created, voided, voided_by, '
-        + 'date_voided, void_reason, uuid) VALUES ';
+        + 'date_voided, void_reason, uuid, form_namespace_and_path) VALUES ';
 
     let toBeinserted = '';
     for(let i = 0; i < rows.length; i++) {
@@ -29,8 +29,9 @@ function prepareObsInsert(rows, nextId) {
             let encounterId = row['encounter_id'] === null ? null : beehive.encounterMap.get(row['encounter_id']);
             let locationId = row['location_id'] === null ? null : beehive.locationMap.get(row['location_id']);
             beehive.obsMap[row['obs_id']] = nextId;
-        
+            
             if(obsGroupsId === undefined) {
+                // The new value of obs_group_id is not yet known because the associated obs is not yet copied.
                 obsGroupsId = null;
                 if(row['obs_group_id'] !== null) {
                     obsWithTheirGroupNotUpdated[nextId] = row['obs_group_id'];
@@ -49,7 +50,7 @@ function prepareObsInsert(rows, nextId) {
                 + `${row['order_id']}, ${strValue(utils.formatDate(row['obs_datetime']))}, `
                 + `${locationId}, ${obsGroupsId}, `
                 + `${strValue(row['accession_number'])}, ${row['value_group_id']}, `
-                + `${row['value_coded']}, `
+                + `${row['value_boolean']}, ${row['value_coded']}, `
                 + `${row['value_coded_name_id']}, ${row['value_drug']}, `
                 + `${strValue(utils.formatDate(row['value_datetime']))}, `
                 + `${row['value_numeric']}, ${strValue(row['value_modifier'])}, `
@@ -59,8 +60,7 @@ function prepareObsInsert(rows, nextId) {
                 + `${strValue(utils.formatDate(row['date_created']))}, `
                 + `${row['voided']}, ${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, `
                 + `${strValue(row['void_reason'])}, ${utils.uuid(row['uuid'])}, `
-                + `${strValue(row['form_namespace_and_path'])}, ${strValue(row['status'])}, `
-                + `${strValue(row['interpretation'])})`;
+                + `${strValue(row['form_namespace_and_path'])})`;
         
             nextId++;
         }
