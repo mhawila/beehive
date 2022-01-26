@@ -205,7 +205,7 @@
             { table: 'obs', column: 'obs_id', map: global.beehive.obsMap, excluded: global.excludedObsIds },
         ];
 
-        await _mapSameUuidsUsers(srcConn, config);
+        // await _mapSameUuidsUsers(srcConn, config);
 
         for(let neededTable of neededTables) {
             await utils.mapSameUuidsRecords(srcConn, neededTable.table, neededTable.column, neededTable.map, neededTable.excluded);

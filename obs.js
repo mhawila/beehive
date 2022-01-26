@@ -1,6 +1,8 @@
+const { addDecimalNumbers, shortenInsert, moveAllTableRecords } = require('./utils');
+const config = require('./config');
 let utils = require('./utils');
 let strValue = utils.stringValue;
-let moveAllTableRecords = utils.moveAllTableRecords;
+const prettyPrintRows = require('./display-utils').prettyPrintRows;
 
 let beehive = global.beehive;
 let obsWithTheirGroupNotUpdated = {};
@@ -34,14 +36,22 @@ function prepareObsInsert(rows, nextId) {
             if(obsGroupsId === undefined) {
                 obsGroupsId = null;
                 if(row['obs_group_id'] !== null) {
-                    obsWithTheirGroupNotUpdated[nextId] = row['obs_group_id'];
+                    // obsWithPreviousNotUpdated[nextId] = row['obs_group_id'];
+                    obsWithTheirGroupNotUpdated[row['obs_id']] = {
+                        destObsId: nextId,
+                        toBeUpdated: row['obs_group_id']
+                    };
                 }
             }
         
             if(previous === undefined) {
                 previous = null;
                 if(row['previous_version'] !== null) {
-                    obsWithPreviousNotUpdated[nextId] = row['previous_version'];
+                    // obsWithPreviousNotUpdated[nextId] = row['previous_version'];
+                    obsWithPreviousNotUpdated[row['obs_id']] = {
+                        destObsId: nextId,
+                        toBeUpdated: row['previous_version']
+                    };
                 }
             }
     
@@ -87,22 +97,81 @@ async function moveObs(srcConn, destConn) {
 async function updateObsPreviousOrGroupId(connection, idMap, field) {
     let mapEntries = Object.entries(idMap);
     if(mapEntries.length > 0) {
+        utils.logInfo(`Updating obs.${field} for ${mapEntries.length} records`);
         let update = `INSERT INTO obs(obs_id, ${field}) VALUES `;
         let lastPart = ` ON DUPLICATE KEY UPDATE ${field} = VALUES(${field})`;
 
-        let values = '';
-        for(const [obsId, srcIdValue] of mapEntries) {
-            if(values.length > 1) {
-                values += ',';
-            }
-            values += `(${obsId}, ${beehive.obsMap[srcIdValue]})`;
-        }
+        let start = 0;
+        let temp = mapEntries.length;
+        let sql;
+        let queryLogged = false;
+        let limit = null;
+        try {
+            while (temp % config.batchSize > 0) {
+                if (Math.floor(temp / config.batchSize) > 0) {
+                    limit = addDecimalNumbers(start, config.batchSize);
+                    temp = subtractDecimalNumbers(temp, config.batchSize);
+                    
+                } else {
+                    limit = addDecimalNumbers(start, temp);
+                    temp = 0;
+                }
 
-        let query = update + values + lastPart;
-        utils.logDebug(`${field} update query:`, query);
-        await connection.query(query);
-    }
-    return mapEntries.length;
+                let values = '', obsId, srcIdValue;
+                for(let i=start; i < limit; i++) {
+                    if(values.length > 1) {
+                        values += ',';
+                    }
+                    obsId = mapEntries[i][1]['destObsId'];
+                    srcIdValue = mapEntries[i][1]['toBeUpdated'];
+                    values += `(${obsId}, ${beehive.obsMap[srcIdValue]})`;
+                }
+
+                sql = update + values + lastPart;
+                if (!queryLogged) {
+                    utils.logDebug(`First obs.${field} update statement:\n`, shortenInsert(sql));
+                    queryLogged = true;
+                }
+                await connection.query(sql);
+                throw new Error('Trying stuff');
+                start = addDecimalNumbers(start, config.batchSize);
+            }
+            return mapEntries.length;
+        }
+        catch(ex) {
+            utils.logError(`An error occured when updating obs ${field} column`);
+            if(sql) {
+                utils.logError('Statement during error');
+                utils.logError(sql);
+            }
+            utils.logDebug(`Obs whose ${field} were being updated during the error.`);
+            let headers = ['source obs_id', `source ${field}`, 'dest obs_id', `dest ${field}`];
+            let rows = [];
+            let srcObsIds = [];
+            for(let i=start; i<limit; i++) {
+                srcObsIds.push(mapEntries[i][0]);
+                rows.push([mapEntries[i][0], mapEntries[i][1]['toBeUpdated'], mapEntries[i][1]['destObsId'], beehive.obsMap[mapEntries[i][1]['toBeUpdated']]]);
+            }
+            prettyPrintRows(rows, headers);
+
+            // In case some of the obs whose obs_group_id/previous_version are to be updated do not exist in the destination.
+            let query = `SELECT obs_id FROM ${config.source.openmrsDb}.obs WHERE obs_id IN (${srcObsIds.join(',')})`;
+            let [records] = await connection.query(query);
+            records.forEach(row => {
+                let index = srcObsIds.findIndex(obsId => obsId == row['obs_id']);
+                if(index >= 0) {
+                    srcObsIds.splice(index, 1);
+                }
+            });
+            if(srcObsIds.length > 0) {
+                utils.logDebug(`ATTENTION: System attempted to update ${field} for obs which were not present in destination. Source obs_id for these obs are:\n`);
+                utils.logDebug(`${srcObsIds.join(',')}`);
+            } else {
+                utils.logDebug(`All obs which are being updated already exist on the destination system!`);
+            }
+            throw ex;
+        }
+    }    
 }
 
 module.exports = async function(srcConn, destConn) {

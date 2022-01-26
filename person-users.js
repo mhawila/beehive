@@ -813,7 +813,7 @@ async function moveUsers(srcConn, destConn, creatorId) {
     let [insertStmt, nextId] = [undefined, -1];
     try {
         let toExclude = '(' + global.excludedUsersIds.join(',') + ')';
-        let condition = `creator=${creatorId} AND user_id NOT IN ${toExclude} AND uuid NOT IN (SELECT uuid FROM ${config.destination.openmrsDb}.users)`;
+        let condition = `creator=${creatorId} AND user_id NOT IN ${toExclude}`;
         let nextUserId = await utils.getNextAutoIncrementId(destConn, 'users');
         let usersToMoveCount = await getUsersCountIgnoreDuplicateUuids(srcConn, condition);
 
@@ -835,6 +835,10 @@ async function moveUsers(srcConn, destConn, creatorId) {
                 temp = 0;
             }
             startingRecord = utils.addDecimalNumbers(startingRecord, BATCH_SIZE);
+
+            if (!logged) {
+                utils.logDebug('User fetch query:', query);
+            }
             let [records, fields] = await srcConn.query(query);
             [insertStmt, nextId] = prepareUserInsert(records, nextUserId);
 
@@ -1076,7 +1080,7 @@ async function main(srcConn, destConn) {
 
     // Create the user tree.
     let tree = await createUserTree(srcConn, srcAdminUserId);
-    utils.logDebug('tree:', tree);
+    utils.logDebug('tree:', JSON.stringify(tree, null, 2));
 
     // Traverse user tree performing the following for each user
     let count = await traverseUserTree(tree, srcConn, destConn);
