@@ -181,6 +181,7 @@
                 global.beehive.userMap.set(record['source_user_id'], record['dest_user_id']);
                 global.beehive.personMap.set(record['source_person_id'], record['dest_person_id']);
                 global.excludedPersonIds.push(record['source_person_id']);
+                global.excludedUsersIds.push(record['source_user_id']);
             });
         } catch(trouble) {
             utils.logError('Error while mapping ignored users (due to same uuids between source and destination)');
@@ -205,7 +206,7 @@
             { table: 'obs', column: 'obs_id', map: global.beehive.obsMap, excluded: global.excludedObsIds },
         ];
 
-        // await _mapSameUuidsUsers(srcConn, config);
+        await _mapSameUuidsUsers(srcConn, config);
 
         for(let neededTable of neededTables) {
             await utils.mapSameUuidsRecords(srcConn, neededTable.table, neededTable.column, neededTable.map, neededTable.excluded);
