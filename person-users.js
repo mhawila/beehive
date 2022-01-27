@@ -818,6 +818,7 @@ async function moveUsers(srcConn, destConn, creatorId) {
         let usersToMoveCount = await getUsersCountIgnoreDuplicateUuids(srcConn, condition);
 
         let startingRecord = 0;
+        condition += ` AND uuid NOT IN (SELECT uuid FROM ${config.destination.openmrsDb}.users)`;
         let userFetchQuery = `SELECT * FROM ${config.source.openmrsDb}.users WHERE ${condition} order by date_changed, date_created LIMIT `;
 
         let temp = usersToMoveCount;
