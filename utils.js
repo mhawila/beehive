@@ -175,7 +175,7 @@ let moveAllTableRecords = async function(srcConn, destConn, tableName, orderColu
     insertQueryPrepareFunction, condition) {
     // Get the count to be pushed
     let countToMove = await getCount(srcConn, tableName, condition);
-    
+    logDebug(`Table ${tableName}  number of records to be moved is ${countToMove}`);
     let nextAutoIncr = await getNextAutoIncrementId(destConn, tableName);
 
     let fetchQuery = `SELECT * FROM ${tableName} `;

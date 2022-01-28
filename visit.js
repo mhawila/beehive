@@ -125,7 +125,8 @@ async function main(srcConn, destConn) {
 
     utils.logInfo('Moving visits...');
     let moved = await moveVisits(srcConn, destConn);
-
+    utils.logDebug('Number of visit records copied: ', moved);
+    
     let finalDestCount = await utils.getCount(destConn, 'visit');
     let expectedFinalCount = initialDestCount + srcVisitCount;
 
@@ -134,8 +135,8 @@ async function main(srcConn, destConn) {
     }
     else {
         let error = `Problem moving visits: the actual final count ` +
-            `(${expectedFinalCount}) is not equal to the expected value ` +
-            `(${finalDestCount})`;
+            `(${finalDestCount}) is not equal to the expected value ` +
+            `(${expectedFinalCount})`;
         throw new Error(error);
     }
 }
