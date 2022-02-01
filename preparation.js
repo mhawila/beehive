@@ -26,6 +26,7 @@
         'providerMap',
         'visitTypeMap',
         'visitMap',
+        'obsMap'
     ];
 
     beehiveMapNames.forEach(mapName => {

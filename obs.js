@@ -1,4 +1,5 @@
 let utils = require('./utils');
+const { Worker } = require('worker_threads');
 let strValue = utils.stringValue;
 let moveAllTableRecords = utils.moveAllTableRecords;
 
@@ -110,18 +111,99 @@ module.exports = async function(srcConn, destConn) {
     let initialDestCount = await utils.getCount(destConn, 'obs');
     let expectedFinalCount = initialDestCount + srcObsCount;
 
-    let moved = await moveObs(srcConn, destConn);
-    let finalDestCount = await utils.getCount(destConn, 'obs');
+    // Create shared Buffers ID maps required for copying obs.
+    const USER_MAP_SIZE = Uint32Array.BYTES_PER_ELEMENT * beehive.userMap.length;
+    const USER_MAP_BUFFER = new SharedArrayBuffer(USER_MAP_SIZE);
+    const SHARED_USER_MAP = new Uint32Array(USER_MAP_BUFFER);
+    beehive.userMap.forEach((val, key) => {
+        Atomics.store(SHARED_USER_MAP, key, val);
+    });
 
-    if (finalDestCount === expectedFinalCount) {
-        // Update obs_group_id & previous_version for records not yet updated
-        await updateObsPreviousOrGroupId(destConn, obsWithTheirGroupNotUpdated, 'obs_group_id');
-        await updateObsPreviousOrGroupId(destConn, obsWithPreviousNotUpdated, 'previous_version');
-        utils.logOk(`Ok... ${moved} obs moved.`);
-    } else {
-        let error = `Problem moving obs: the actual final count ` +
-            `(${expectedFinalCount}) is not equal to the expected value ` +
-            `(${finalDestCount})`;
-        throw new Error(error);
+    const PERSON_MAP_SIZE = Uint32Array.BYTES_PER_ELEMENT * beehive.personMap.length;
+    const PERSON_MAP_BUFFER = new SharedArrayBuffer(PERSON_MAP_SIZE);
+    const SHARED_PERSON_MAP = new Uint32Array(PERSON_MAP_BUFFER);
+    beehive.userMap.forEach((val, key) => {
+        Atomics.store(SHARED_PERSON_MAP, key, val);
+    });
+
+    const LOCATION_MAP_SIZE = Uint32Array.BYTES_PER_ELEMENT * beehive.locationMap.length;
+    const LOCATION_MAP_BUFFER = new SharedArrayBuffer(LOCATION_MAP_SIZE);
+    const SHARED_LOCATION_MAP = new Uint32Array(LOCATION_MAP_BUFFER);
+    beehive.userMap.forEach((val, key) => {
+        Atomics.store(SHARED_LOCATION_MAP, key, val);
+    });
+
+    const ENCOUNTER_MAP_SIZE = Uint32Array.BYTES_PER_ELEMENT * beehive.encounterMap.length;
+    const ENCOUNTER_MAP_BUFFER = new SharedArrayBuffer(ENCOUNTER_MAP_SIZE);
+    const SHARED_ENCOUNTER_MAP = new Uint32Array(ENCOUNTER_MAP_BUFFER);
+    beehive.userMap.forEach((val, key) => {
+        Atomics.store(SHARED_ENCOUNTER_MAP, key, val);
+    });
+
+    let nextAutoIncrId = await utils.getNextAutoIncrementId(destConn, 'obs');
+    const OBS_MAP_SIZE = Uint32Array.BYTES_PER_ELEMENT * utils.subtractDecimalNumbers(nextAutoIncrId, 1);
+    const OBS_MAP_BUFFER = new SharedArrayBuffer(OBS_MAP_SIZE);
+    const SHARED_OBS_MAP = new Uint32Array(OBS_MAP_BUFFER);
+    beehive.obsMap.forEach((val, key) => {
+        Atomics.store(SHARED_OBS_MAP, key, val);
+    });
+    // Use workers for large number of obs. (Use 8 for now)
+    const NU_WORKERS = 8;
+    const REMAINDER_RECORDS = srcObsCount % NU_WORKERS;
+    const OBS_CHUNK_SIZE = Math.floor(srcObsCount/NU_WORKERS);
+    const SHARED_DATA = {
+        workerData: {
+            obsMap: SHARED_OBS_MAP,
+            userMap: SHARED_USER_MAP,
+            encounterMap: SHARED_ENCOUNTER_MAP,
+            personMap: SHARED_PERSON_MAP,
+            locationMap: SHARED_LOCATION_MAP,
+            start: 0,
+            countToMove: (REMAINDER_RECORDS > 0 ? 
+                utils.addDecimalNumbers(OBS_CHUNK_SIZE, REMAINDER_RECORDS) : OBS_CHUNK_SIZE),
+            nextId: nextAutoIncrId,
+            threadId: 1
+        }
+    };
+    const workers = new Array(NU_WORKERS);
+    workers[0] = new Worker('./obs-worker.js', SHARED_DATA);
+
+    let start = REMAINDER_RECORDS;
+    let copiedObs = 0;
+    for(let i=1; i < NU_WORKERS; i++) {
+        start = utils.addDecimalNumbers(start, OBS_CHUNK_SIZE);
+        SHARED_DATA['workerData']['start'] = start;
+        SHARED_DATA['workerData']['countToMove'] = OBS_CHUNK_SIZE;
+        SHARED_DATA['workerData']['nextId'] = utils.addDecimalNumbers(SHARED_DATA['workerData']['nextId'], OBS_CHUNK_SIZE);
+        SHARED_DATA['workerData']['threadId'] = i + 1;
+        workers[i] = new Worker('./obs-worker.js', SHARED_DATA);
     }
+
+    for(let i=0; i < NU_WORKERS; i++) {
+        workers[i].on('error', err => { throw err; });
+        workers[i].on('exit', () => {
+            delete workers[i];
+            utils.logDebug(`Worker thread ${i+1} exiting...`);
+            if(workers.length === 0) {
+                utils.logOk(`Ok... ${copiedObs} obs copied to destination.`);
+            }
+        });
+        workers[i].on('message', numberCopied => {
+            copiedObs = utils.addDecimalNumbers(copiedObs, numberCopied);
+        });
+    }
+    // let moved = await moveObs(srcConn, destConn);
+    // let finalDestCount = await utils.getCount(destConn, 'obs');
+
+    // if (finalDestCount === expectedFinalCount) {
+    //     // Update obs_group_id & previous_version for records not yet updated
+    //     await updateObsPreviousOrGroupId(destConn, obsWithTheirGroupNotUpdated, 'obs_group_id');
+    //     await updateObsPreviousOrGroupId(destConn, obsWithPreviousNotUpdated, 'previous_version');
+    //     utils.logOk(`Ok... ${moved} obs moved.`);
+    // } else {
+    //     let error = `Problem moving obs: the actual final count ` +
+    //         `(${expectedFinalCount}) is not equal to the expected value ` +
+    //         `(${finalDestCount})`;
+    //     throw new Error(error);
+    // }
 }

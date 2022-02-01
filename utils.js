@@ -168,6 +168,9 @@ let consolidateTableRecords = async function(srcConn, destConn, table,
  * @param orderColumn:String Name of the column to order records with.
  * @param insertQueryPrepareFunction: function prepares the insert query
  * @param condition: String, an sql condition that is appended to count & fetch queries.
+ * @param start: Integer - Where to start moving (first number to sql limit statement)
+ * @param countToMove: Integer - Number of records to copy from the specificied starting point.
+ * @param nextAutoIncr: Integer - The primary key value to be assigned to the first record to be copied.
  * @return count of records moved. (or a promise that resolves to count)
  */
 let moveAllTableRecords = async function(srcConn, destConn, tableName, orderColumn,
