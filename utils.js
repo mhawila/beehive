@@ -172,18 +172,25 @@ let consolidateTableRecords = async function(srcConn, destConn, table,
  * @return count of records moved. (or a promise that resolves to count)
  */
 let moveAllTableRecords = async function(srcConn, destConn, tableName, orderColumn,
-    insertQueryPrepareFunction, condition) {
+    insertQueryPrepareFunction, condition, start, countToMove, nextAutoIncr) {
     // Get the count to be pushed
-    let countToMove = await getCount(srcConn, tableName, condition);
-    
-    let nextAutoIncr = await getNextAutoIncrementId(destConn, tableName);
+    if(start === undefined || start === null) {
+        start = 0;
+    }
+
+    if(countToMove === undefined || countToMove === null) {
+        countToMove = await getCount(srcConn, tableName, condition);
+    }
+
+    if(nextAutoIncr === undefined || nextAutoIncr === null) {
+        nextAutoIncr = await getNextAutoIncrementId(destConn, tableName);
+    }
 
     let fetchQuery = `SELECT * FROM ${tableName} `;
     if(condition) {
         fetchQuery += `WHERE  ${condition} `;
     }
     fetchQuery += `ORDER by ${orderColumn} LIMIT `;
-    let start = 0;
     let temp = countToMove;
     let moved = 0;
     let queryLogged = false;
