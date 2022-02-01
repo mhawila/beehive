@@ -15,14 +15,14 @@ function prepareVisitTypeInsert(rows, nextId) {
           toBeinserted += ',';
       }
 
-      let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
-      let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+      let retiredBy = row['retired_by'] === null ? null : beehive.userMap[row['retired_by']];
+      let changedBy = row['changed_by'] === null ? null : beehive.userMap[row['changed_by']];
 
-      beehive.visitTypeMap.set(row['visit_type_id'], nextId);
+      beehive.visitTypeMap[row['visit_type_id']] =  nextId;
 
       toBeinserted += `(${nextId}, ${strValue(row['name'])}, `
           + `${strValue(row['description'])}, `
-          + `${beehive.userMap.get(row['creator'])}, `
+          + `${beehive.userMap[row['creator']]}, `
           + `${strValue(utils.formatDate(row['date_created']))}, ${changedBy}, `
           + `${strValue(utils.formatDate(row['date_changed']))}, `
           + `${row['retired']}, ${retiredBy}, `
@@ -48,18 +48,18 @@ function prepareVisitInsert(rows, nextId) {
       if(toBeinserted.length > 1) {
         toBeinserted += ',';
       }
-      let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
-      let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
-      let location = row['location_id'] === null ? null : beehive.locationMap.get(row['location_id']);
+      let voidedBy = row['voided_by'] === null ? null : beehive.userMap[row['voided_by']];
+      let changedBy = row['changed_by'] === null ? null : beehive.userMap[row['changed_by']];
+      let location = row['location_id'] === null ? null : beehive.locationMap[row['location_id']];
 
-      beehive.visitMap.set(row['visit_id'], nextId);
+      beehive.visitMap[row['visit_id']] =  nextId;
 
-      toBeinserted += `(${nextId}, ${beehive.personMap.get(row['patient_id'])}, `
-          + `${beehive.visitTypeMap.get(row['visit_type_id'])}, `
+      toBeinserted += `(${nextId}, ${beehive.personMap[row['patient_id']]}, `
+          + `${beehive.visitTypeMap[row['visit_type_id']]}, `
           + `${strValue(utils.formatDate(row['date_started']))}, `
           + `${strValue(utils.formatDate(row['date_stopped']))}, `
           + `${row['indication_concept_id']}, ${location}, `
-          + `${beehive.userMap.get(row['creator'])}, `
+          + `${beehive.userMap[row['creator']]}, `
           + `${strValue(utils.formatDate(row['date_created']))}, `
           + `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}, `
           + `${row['voided']}, ${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, `
@@ -88,8 +88,7 @@ async function consolidateVisitTypes(srcConn, destConn) {
     });
 
     if(match !== undefined && match !== null) {
-      beehive.visitTypeMap.set(srcVisitType['visit_type_id'],
-                          match['visit_type_id']);
+      beehive.visitTypeMap[srcVisitType['visit_type_id']] = match['visit_type_id'];
     }
     else {
       missingInDest.push(srcVisitType);

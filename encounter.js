@@ -15,14 +15,14 @@ function prepareEncounterRoleInsert(rows, nextId) {
             toBeinserted += ',';
         }
 
-        let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
-        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+        let retiredBy = row['retired_by'] === null ? null : beehive.userMap[row['retired_by']];
+        let changedBy = row['changed_by'] === null ? null : beehive.userMap[row['changed_by']];
 
-        beehive.encounterRoleMap.set(row['encounter_role_id'], nextId);
+        beehive.encounterRoleMap[row['encounter_role_id']] =  nextId;
 
         toBeinserted += `(${nextId}, ${strValue(row['name'])}, ` +
             `${strValue(row['description'])}, ` +
-            `${beehive.userMap.get(row['creator'])}, ` +
+            `${beehive.userMap[row['creator']]}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ${changedBy}, ` +
             `${strValue(utils.formatDate(row['date_changed']))}, ` +
             `${row['retired']}, ${retiredBy}, ` +
@@ -47,13 +47,13 @@ function prepareEncounterProviderInsert(rows, nextId) {
         if (toBeinserted.length > 1) {
             toBeinserted += ',';
         }
-        let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
-        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+        let voidedBy = row['voided_by'] === null ? null : beehive.userMap[row['voided_by']];
+        let changedBy = row['changed_by'] === null ? null : beehive.userMap[row['changed_by']];
 
-        toBeinserted += `(${nextId}, ${beehive.encounterMap.get(row['encounter_id'])}, ` +
-            `${beehive.providerMap.get(row['provider_id'])}, ` +
-            `${beehive.encounterRoleMap.get(row['encounter_role_id'])}, ` +
-            `${beehive.userMap.get(row['creator'])}, ` +
+        toBeinserted += `(${nextId}, ${beehive.encounterMap[row['encounter_id']]}, ` +
+            `${beehive.providerMap[row['provider_id']]}, ` +
+            `${beehive.encounterRoleMap[row['encounter_role_id']]}, ` +
+            `${beehive.userMap[row['creator']]}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ` +
             `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}, ` +
             `${row['voided']}, ${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, ` +
@@ -77,13 +77,13 @@ function prepareEncounterTypeInsert(rows, nextId) {
             toBeinserted += ',';
         }
 
-        let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
+        let retiredBy = row['retired_by'] === null ? null : beehive.userMap[row['retired_by']];
 
-        beehive.encounterTypeMap.set(row['encounter_type_id'], nextId);
+        beehive.encounterTypeMap[row['encounter_type_id']] =  nextId;
 
         toBeinserted += `(${nextId}, ${strValue(row['name'])}, ` +
             `${strValue(row['description'])}, ` +
-            `${beehive.userMap.get(row['creator'])}, ` +
+            `${beehive.userMap[row['creator']]}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ` +
             `${row['retired']}, ${retiredBy}, ` +
             `${strValue(utils.formatDate(row['date_retired']))}, ` +
@@ -108,16 +108,16 @@ function prepareEncounterInsert(rows, nextId) {
             if (toBeinserted.length > 1) {
                 toBeinserted += ',';
             }
-            let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
-            let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
-            let visitId = row['visit_id'] === null ? null : beehive.visitMap.get(row['visit_id']);
-            beehive.encounterMap.set(row['encounter_id'], nextId);
+            let voidedBy = row['voided_by'] === null ? null : beehive.userMap[row['voided_by']];
+            let changedBy = row['changed_by'] === null ? null : beehive.userMap[row['changed_by']];
+            let visitId = row['visit_id'] === null ? null : beehive.visitMap[row['visit_id']];
+            beehive.encounterMap[row['encounter_id']] =  nextId;
 
-            toBeinserted += `(${nextId}, ${beehive.encounterTypeMap.get(row['encounter_type'])}, ` +
-                `${beehive.personMap.get(row['patient_id'])}, ` +
-                `${beehive.locationMap.get(row['location_id'])}, ${row['form_id']}, ` +
+            toBeinserted += `(${nextId}, ${beehive.encounterTypeMap[row['encounter_type']]}, ` +
+                `${beehive.personMap[row['patient_id']]}, ` +
+                `${beehive.locationMap[row['location_id']]}, ${row['form_id']}, ` +
                 `${visitId}, ${strValue(utils.formatDate(row['encounter_datetime']))}, ` +
-                `${beehive.userMap.get(row['creator'])}, ` +
+                `${beehive.userMap[row['creator']]}, ` +
                 `${strValue(utils.formatDate(row['date_created']))}, ` +
                 `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}, ` +
                 `${row['voided']}, ${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, ` +
@@ -147,8 +147,7 @@ async function consolidateEncounterTypes(srcConn, destConn) {
         });
 
         if (match !== undefined && match !== null) {
-            beehive.encounterTypeMap.set(srcEncounterType['encounter_type_id'],
-                match['encounter_type_id']);
+            beehive.encounterTypeMap[srcEncounterType['encounter_type_id']] = match['encounter_type_id'];
         } else {
             missingInDest.push(srcEncounterType);
         }
@@ -177,8 +176,7 @@ async function consolidateEncounterRoles(srcConn, destConn) {
         });
 
         if (match !== undefined && match !== null) {
-            beehive.encounterRoleMap.set(srcEncounterRole['encounter_role_id'],
-                match['encounter_role_id']);
+            beehive.encounterRoleMap[srcEncounterRole['encounter_role_id']] = match['encounter_role_id'];
         } else {
             missingInDest.push(srcEncounterRole);
         }

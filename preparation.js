@@ -29,20 +29,8 @@
     ];
 
     beehiveMapNames.forEach(mapName => {
-        global.beehive[mapName] = new Map();
+        global.beehive[mapName] = [];
     });
-
-    // Use Object literal for obsMap to avoid the Map's number of entries hard limit of 16777216
-    // Object literal has more than 100 million hard limit on the number of keys.
-    // Also make the obsMap consintent with Map API
-    global.beehive['obsMap'] = {
-        set: function(key, value) {
-            this[key] = value;
-        },
-        get: function(key) {
-            return this[key];
-        }
-    };
     
     async function _sourceAlreadyExists(connection, source) {
         let query = 'SELECT source FROM beehive_merge_source where source = ' +
@@ -160,8 +148,8 @@
             if(match) {
                 global.excludedUsersIds.push(su['user_id']);
                 global.excludedPersonIds.push(su['person_id']);
-                global.beehive.userMap.set(su['user_id'], match['user_id']);
-                global.beehive.personMap.set(su['person_id'], match['person_id']);
+                global.beehive.userMap[su['user_id']] =  match['user_id'];
+                global.beehive.personMap[su['person_id']] =  match['person_id'];
             }
         });
 
@@ -180,8 +168,8 @@
         try {
             let [records] = await connection.query(query);
             records.forEach(record => {
-                global.beehive.userMap.set(record['source_user_id'], record['dest_user_id']);
-                global.beehive.personMap.set(record['source_person_id'], record['dest_person_id']);
+                global.beehive.userMap[record['source_user_id']] =  record['dest_user_id'];
+                global.beehive.personMap[record['source_person_id']] =  record['dest_person_id'];
                 global.excludedPersonIds.push(record['source_person_id']);
             });
         } catch(trouble) {

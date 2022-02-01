@@ -22,11 +22,11 @@ function prepareProgramInsert(rows, nextId) {
             toBeinserted += ',';
         }
 
-        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
-        beehive.programMap.set(row['program_id'], nextId);
+        let changedBy = row['changed_by'] === null ? null : beehive.userMap[row['changed_by']];
+        beehive.programMap[row['program_id']] =  nextId;
 
         toBeinserted += `(${nextId}, ${row['concept_id']}, ` +
-            `${beehive.userMap.get(row['creator'])}, ` +
+            `${beehive.userMap[row['creator']]}, ` +
             `${strValue(utils.formatDate(row['date_created']))},` +
             `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))},` +
             `${row['retired']}, ${strValue(row['name'])},` +
@@ -51,12 +51,12 @@ function prepareProgramWorkflowInsert(rows, nextId) {
             toBeinserted += ',';
         }
 
-        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+        let changedBy = row['changed_by'] === null ? null : beehive.userMap[row['changed_by']];
 
-        beehive.programWorkflowMap.set(row['program_workflow_id'], nextId);
+        beehive.programWorkflowMap[row['program_workflow_id']] =  nextId;
 
-        toBeinserted += `(${nextId}, ${beehive.programMap.get(row['program_id'])}, ` +
-            `${row['concept_id']}, ${beehive.userMap.get(row['creator'])}, ` +
+        toBeinserted += `(${nextId}, ${beehive.programMap[row['program_id']]}, ` +
+            `${row['concept_id']}, ${beehive.userMap[row['creator']]}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ` +
             `${row['retired']}, ${changedBy}, ` +
             `${strValue(utils.formatDate(row['date_changed']))}, ` +
@@ -81,14 +81,14 @@ function prepareProgramWorkflowStateInsert(rows, nextId) {
             toBeinserted += ',';
         }
 
-        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+        let changedBy = row['changed_by'] === null ? null : beehive.userMap[row['changed_by']];
 
-        beehive.programWorkflowStateMap.set(row['program_workflow_state_id'], nextId);
+        beehive.programWorkflowStateMap[row['program_workflow_state_id']] =  nextId;
 
         toBeinserted += `(${nextId}, ` +
-            `${beehive.programWorkflowMap.get(row['program_workflow_id'])}, ` +
+            `${beehive.programWorkflowMap[row['program_workflow_id']]}, ` +
             `${row['concept_id']},  ${row['initial']}, ${row['terminal']}, ` +
-            `${beehive.userMap.get(row['creator'])}, ` +
+            `${beehive.userMap[row['creator']]}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ${row['retired']}, ` +
             `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}, ` +
             `${utils.uuid(row['uuid'])})`
@@ -113,23 +113,22 @@ function preparePatientProgramInsert(rows, nextId) {
             toBeinserted += ',';
         }
 
-        let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
-        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
-        let locationId = (row['location_id'] === null ? null :
-                            beehive.locationMap.get(row['location_id']));
+        let voidedBy = row['voided_by'] === null ? null : beehive.userMap[row['voided_by']];
+        let changedBy = row['changed_by'] === null ? null : beehive.userMap[row['changed_by']];
+        let locationId = row['location_id'] === null ? null : beehive.locationMap[row['location_id']];
 
         // Do this for location_ids that no longer exists in the system.                    
         if(locationId === undefined) {
             locationId = null;
         }
 
-        beehive.patientProgramMap.set(row['patient_program_id'], nextId);
+        beehive.patientProgramMap[row['patient_program_id']] =  nextId;
 
-        toBeinserted += `(${nextId}, ${beehive.personMap.get(row['patient_id'])}, ` +
-            `${beehive.programMap.get(row['program_id'])}, ` +
+        toBeinserted += `(${nextId}, ${beehive.personMap[row['patient_id']]}, ` +
+            `${beehive.programMap[row['program_id']]}, ` +
             `${strValue(utils.formatDate(row['date_enrolled']))}, ` +
             `${strValue(utils.formatDate(row['date_completed']))}, ` +
-            `${beehive.userMap.get(row['creator'])}, ` +
+            `${beehive.userMap[row['creator']]}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ` +
             `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}, ` +
             `${row['voided']}, ${voidedBy}, ` +
@@ -156,14 +155,14 @@ function preparePatientStateInsert(rows) {
             toBeinserted += ',';
         }
 
-        let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
-        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+        let voidedBy = row['voided_by'] === null ? null : beehive.userMap[row['voided_by']];
+        let changedBy = row['changed_by'] === null ? null : beehive.userMap[row['changed_by']];
 
-        toBeinserted += `(${beehive.patientProgramMap.get(row['patient_program_id'])}, ` +
-            `${beehive.programWorkflowStateMap.get(row['state'])}, ` +
+        toBeinserted += `(${beehive.patientProgramMap[row['patient_program_id']]}, ` +
+            `${beehive.programWorkflowStateMap[row['state']]}, ` +
             `${strValue(utils.formatDate(row['start_date']))}, ` +
             `${strValue(utils.formatDate(row['end_date']))}, ` +
-            `${beehive.userMap.get(row['creator'])}, ` +
+            `${beehive.userMap[row['creator']]}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ` +
             `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}, ` +
             `${row['voided']}, ${voidedBy}, ` +

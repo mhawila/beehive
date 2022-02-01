@@ -22,13 +22,13 @@ function _prepareGaacTypeInsertTemplate(rows, nextId, type, typeMap) {
           toBeinserted += ',';
       }
 
-      let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
+      let retiredBy = row['retired_by'] === null ? null : beehive.userMap[row['retired_by']];
 
-      typeMap.set(row[`gaac_${type}_type_id`], nextId);
+      typeMap[row[`gaac_${type}_type_id`]] =  nextId;
 
       toBeinserted += `(${nextId}, ${strValue(row['name'])}, `
           + `${strValue(row['description'])}, `
-          + `${beehive.userMap.get(row['creator'])}, `
+          + `${beehive.userMap[row['creator']]}, `
           + `${strValue(utils.formatDate(row['date_created']))}, `
           + `${row['retired']}, ${retiredBy}, `
           + `${strValue(utils.formatDate(row['date_retired']))}, `
@@ -64,18 +64,13 @@ function prepareGaacInsert(rows, nextId) {
             toBeinserted += ',';
         }
 
-        let voidedBy = (row['voided_by'] === null ? null :
-                                beehive.userMap.get(row['voided_by']));
-        let changedBy = (row['changed_by'] === null ? null :
-                            beehive.userMap.get(row['changed_by']));
-        let locationId = (row['location_id'] === null ? null :
-                            beehive.locationMap.get(row['location_id']));
-        let affinityType = (row['affinity_type'] === null ? null :
-                            beehive.gaacAffinityTypeMap.get(row['affinity_type']));
-        let focalPatientId = (row['focal_patient_id'] === null ? null :
-                            beehive.personMap.get(row['focal_patient_id']));
+        let voidedBy = (row['voided_by'] === null ? null :beehive.userMap[row['voided_by']]);
+        let changedBy = (row['changed_by'] === null ? null :beehive.userMap[row['changed_by']]);
+        let locationId = (row['location_id'] === null ? null :beehive.locationMap[row['location_id']]);
+        let affinityType = (row['affinity_type'] === null ? null : beehive.gaacAffinityTypeMap[row['affinity_type']]);
+        let focalPatientId = (row['focal_patient_id'] === null ? null : beehive.personMap[row['focal_patient_id']]);
 
-        beehive.gaacMap.set(row['gaac_id'], nextId);
+        beehive.gaacMap[row['gaac_id']] =  nextId;
 
         toBeinserted += `(${nextId}, ${strValue(row['name'])}, ` +
             `${strValue(row['description'])}, ${strValue(row['gaac_identifier'])}, ` +
@@ -84,7 +79,7 @@ function prepareGaacInsert(rows, nextId) {
             `${focalPatientId}, ${affinityType}, ${locationId}, ` +
             `${row['crumbled']}, ${strValue(row['reason_crumbled'])}, ` +
             `${strValue(utils.formatDate(row['date_crumbled']))}, ` +
-            `${beehive.userMap.get(row['creator'])}, ` +
+            `${beehive.userMap[row['creator']]}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ` +
             `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}, ` +
             `${row['voided']}, ${voidedBy}, ` +
@@ -110,21 +105,18 @@ function prepareGaacMemberInsert(rows) {
             toBeinserted += ',';
         }
 
-        let voidedBy = (row['voided_by'] === null ? null :
-                                beehive.userMap.get(row['voided_by']));
-        let changedBy = (row['changed_by'] === null ? null :
-                            beehive.userMap.get(row['changed_by']));
-        let reasonLeavingType = (row['reason_leaving_type'] === null ? null :
-                beehive.gaacReasonLeavingTypeMap.get(row['reason_leaving_type']));
+        let voidedBy = (row['voided_by'] === null ? null : beehive.userMap[row['voided_by']]);
+        let changedBy = (row['changed_by'] === null ? null :beehive.userMap[row['changed_by']]);
+        let reasonLeavingType = (row['reason_leaving_type'] === null ? null : beehive.gaacReasonLeavingTypeMap[row['reason_leaving_type']]);
 
 
-        toBeinserted += `(${beehive.gaacMap.get(row['gaac_id'])}, ` +
-            `${beehive.personMap.get(row['member_id'])}, ` +
+        toBeinserted += `(${beehive.gaacMap[row['gaac_id']]}, ` +
+            `${beehive.personMap[row['member_id']]}, ` +
             `${strValue(utils.formatDate(row['start_date']))}, ` +
             `${strValue(utils.formatDate(row['end_date']))}, ${reasonLeavingType}, ` +
             `${strValue(row['description'])}, ${row['leaving']}, ${row['restart']}, ` +
             `${strValue(utils.formatDate(row['restart_date']))}, ` +
-            `${beehive.userMap.get(row['creator'])}, ` +
+            `${beehive.userMap[row['creator']]}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ` +
             `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}, ` +
             `${row['voided']}, ${voidedBy}, ` +

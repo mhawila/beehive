@@ -23,11 +23,11 @@ function prepareObsInsert(rows, nextId) {
                 toBeinserted += ',';
             }
     
-            let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
+            let voidedBy = row['voided_by'] === null ? null : beehive.userMap[row['voided_by']];
             let obsGroupsId = row['obs_group_id'] === null ? null : beehive.obsMap[row['obs_group_id']];
             let previous = row['previous_version']=== null ? null : beehive.obsMap[row['previous_version']];
-            let encounterId = row['encounter_id'] === null ? null : beehive.encounterMap.get(row['encounter_id']);
-            let locationId = row['location_id'] === null ? null : beehive.locationMap.get(row['location_id']);
+            let encounterId = row['encounter_id'] === null ? null : beehive.encounterMap[row['encounter_id']];
+            let locationId = row['location_id'] === null ? null : beehive.locationMap[row['location_id']];
             beehive.obsMap[row['obs_id']] = nextId;
             
             if(obsGroupsId === undefined) {
@@ -45,7 +45,7 @@ function prepareObsInsert(rows, nextId) {
                 }
             }
     
-            toBeinserted += `(${nextId}, ${beehive.personMap.get(row['person_id'])}, `
+            toBeinserted += `(${nextId}, ${beehive.personMap[row['person_id']]}, `
                 + `${row['concept_id']},  ${encounterId}, `
                 + `${row['order_id']}, ${strValue(utils.formatDate(row['obs_datetime']))}, `
                 + `${locationId}, ${obsGroupsId}, `
@@ -56,7 +56,7 @@ function prepareObsInsert(rows, nextId) {
                 + `${row['value_numeric']}, ${strValue(row['value_modifier'])}, `
                 + `${strValue(row['value_text'])}, ${strValue(row['value_complex'])}, `
                 + `${strValue(row['comments'])}, ${previous}, `
-                + `${beehive.userMap.get(row['creator'])}, `
+                + `${beehive.userMap[row['creator']]}, `
                 + `${strValue(utils.formatDate(row['date_created']))}, `
                 + `${row['voided']}, ${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, `
                 + `${strValue(row['void_reason'])}, ${utils.uuid(row['uuid'])}, `

@@ -112,7 +112,7 @@ let consolidateTableRecords = async function(srcConn, destConn, table,
                     else {
                         if(col.mapped) {
                             compareResult = compareResult && (
-                                col.mappedValueMap.get(srcRecord[col.name]) === destRecord[col.name]
+                                col.mappedValueMap[srcRecord[col.name]] === destRecord[col.name]
                             );
                         }
                         else {
@@ -130,8 +130,7 @@ let consolidateTableRecords = async function(srcConn, destConn, table,
         });
 
         if (match !== undefined && match !== null) {
-            idMap.set(srcRecord[idColumn],
-                match[idColumn]);
+            idMap[srcRecord[idColumn]] = match[idColumn];
         } else {
             missingInDest.push(srcRecord);
         }
@@ -293,7 +292,7 @@ async function mapSameUuidsRecords(connection, table, column, map, arrayOfExclud
     try {
         let [records] = await connection.query(query);
         records.forEach(record => {
-            map.set(record['source_value'], record['dest_value']);
+            map[record['source_value']] =  record['dest_value'];
             arrayOfExcludedIds.push(record['source_value']);
         });
     } catch(trouble) {

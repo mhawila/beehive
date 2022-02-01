@@ -292,13 +292,13 @@ async function main(srcConn, destConn, dryRun, useTransaction) {
             let changes = await ensureUniqueUuids(coreTables[i]);
 
             if(changes !== null && changes.length > 0) {
-                changesMap.set(coreTables[i].table, changes);
+                changesMap[coreTables[i].table] =  changes;
             }
 
             while (changes !== null && changes.length > 0) {
                 changes = await ensureUniqueUuids(coreTables[i]);
                 if(changes !== null && changes.length > 0) {
-                    changesMap.set(coreTables[i].table, changes);
+                    changesMap[coreTables[i].table] =  changes;
                 }
             }
         }
@@ -319,7 +319,7 @@ async function main(srcConn, destConn, dryRun, useTransaction) {
                     changes = await ensureUniqueUuids(gaacTables[i]);
 
                     if(changes !== null && changes.length > 0) {
-                        changesMap.set(gaacTables[i].table, changes);
+                        changesMap[gaacTables[i].table] =  changes;
                     }
                 } while (changes !== null && changes.length > 0);
             }

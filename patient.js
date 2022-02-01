@@ -17,13 +17,11 @@ function preparePatientInsert(rows) {
             toBeinserted += ',';
         }
 
-        let voidedBy = (row['voided_by'] === null ? null :
-                            beehive.userMap.get(row['voided_by']));
-        let changedBy = (row['changed_by'] === null ? null :
-                            beehive.userMap.get(row['changed_by']));
+        let voidedBy = row['voided_by'] === null ? null : beehive.userMap[row['voided_by']];
+        let changedBy = row['changed_by'] === null ? null : beehive.userMap[row['changed_by']];
 
-        toBeinserted += `(${beehive.personMap.get(row['patient_id'])}, ` +
-            `${beehive.userMap.get(row['creator'])}, ` +
+        toBeinserted += `(${beehive.personMap[row['patient_id']]}, ` +
+            `${beehive.userMap[row['creator']]}, ` +
             `${strValue(utils.formatDate(row['date_created']))},` +
             `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))},` +
             `${row['voided']}, ${voidedBy},` +
@@ -47,13 +45,13 @@ function prepareIdentifierTypeInsert(rows, nextId) {
             toBeinserted += ',';
         }
 
-        let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
+        let retiredBy = row['retired_by'] === null ? null : beehive.userMap[row['retired_by']];
 
-        beehive.identifierTypeMap.set(row['patient_identifier_type_id'], nextId);
+        beehive.identifierTypeMap[row['patient_identifier_type_id']] =  nextId;
 
         toBeinserted += `(${nextId}, ${strValue(row['name'])}, ` +
             `${strValue(row['description'])}, ${strValue(row['format'])}, ` +
-            `${row['check_digit']}, ${beehive.userMap.get(row['creator'])}, ` +
+            `${row['check_digit']}, ${beehive.userMap[row['creator']]}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ` +
             `${row['required']}, ${strValue(row['format_description'])}, ` +
             `${strValue(row['validator'])}, ${row['retired']}, ${retiredBy}, ` +
@@ -80,18 +78,15 @@ function preparePatientIdentifierInsert(rows, nextId) {
             toBeinserted += ',';
         }
 
-        let voidedBy = (row['voided_by'] === null ? null :
-                            beehive.userMap.get(row['voided_by']));
-        let changedBy = (row['changed_by'] === null ? null :
-                            beehive.userMap.get(row['changed_by']));
-        let locationId = (row['location_id'] === null ? null :
-                            beehive.locationMap.get(row['location_id']));
+        let voidedBy = row['voided_by'] === null ? null : beehive.userMap[row['voided_by']];
+        let changedBy = row['changed_by'] === null ? null : beehive.userMap[row['changed_by']];
+        let locationId = row['location_id'] === null ? null :beehive.locationMap[row['location_id']];
 
-        toBeinserted += `(${nextId}, ${beehive.personMap.get(row['patient_id'])}, ` +
+        toBeinserted += `(${nextId}, ${beehive.personMap[row['patient_id']]}, ` +
             `${strValue(row['identifier'])}, ` +
-            `${beehive.identifierTypeMap.get(row['identifier_type'])}, ` +
+            `${beehive.identifierTypeMap[row['identifier_type']]}, ` +
             `${row['preferred']},  ${locationId}, ` +
-            `${beehive.userMap.get(row['creator'])}, ` +
+            `${beehive.userMap[row['creator']]}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ${row['voided']}, ` +
             `${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, ` +
             `${strValue(row['void_reason'])}, ${utils.uuid(row['uuid'])}, ` +
@@ -116,8 +111,7 @@ async function consolidatePatientIdentifierTypes(srcConn, destConn) {
         });
 
         if (match !== undefined && match !== null) {
-            beehive.identifierTypeMap.set(srcPatIdType['patient_identifier_type_id'],
-                match['patient_identifier_type_id']);
+            beehive.identifierTypeMap[srcPatIdType['patient_identifier_type_id']] = match['patient_identifier_type_id'];
         } else {
             missingInDest.push(srcPatIdType);
         }

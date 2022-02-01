@@ -98,7 +98,7 @@ async function doWork(connection, schema) {
                     foreignKeyValue: result[tablesInfo[i]['column_name']]
                 });
             });
-            let existing = resultsMap.get(tablesInfo[i]['table_name']);
+            let existing = resultsMap[tablesInfo[i]['table_name']];
             if(existing) {
                 //There is already something there.
                 // This below kills the stack hence has to be replaced.
@@ -106,10 +106,10 @@ async function doWork(connection, schema) {
                 for(let i=0; i < transformed.length; i++) {
                     existing.push(transformed[i]);
                 }
-                resultsMap.set(tablesInfo[i]['table_name'], existing);
+                resultsMap[tablesInfo[i]['table_name']] =  existing;
             }
             else {
-                resultsMap.set(tablesInfo[i]['table_name'], transformed);
+                resultsMap[tablesInfo[i]['table_name']] =  transformed;
             }
         }
     }

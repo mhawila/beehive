@@ -17,24 +17,23 @@ function prepareLocationInsert(rows, nextId) {
         if (toBeinserted.length > 1) {
             toBeinserted += ',';
         }
-        let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
-        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+        let retiredBy = row['retired_by'] === null ? null : beehive.userMap[row['retired_by']];
 
-        let parentLocation = beehive.locationMap.get(row['parent_location']);
+        let parentLocation = beehive.locationMap[row['parent_location']];
         if(parentLocation === undefined) {
             parentLocation = null;
             if(row['parent_location'] !== null) {
-                notYetUpdatedWithParentLocations.set(nextId, row['parent_location']);
+                notYetUpdatedWithParentLocations[nextId] =  row['parent_location'];
             }
         }
-        beehive.locationMap.set(row['location_id'], nextId);
+        beehive.locationMap[row['location_id']] =  nextId;
 
         toBeinserted += `(${nextId}, ${strValue(row['name'])}, ` +
             `${strValue(row['description'])}, ${strValue(row['address1'])}, ` +
             `${strValue(row['address2'])}, ${strValue(row['city_village'])}, ` +
             `${strValue(row['state_province'])}, ${strValue(row['postal_code'])}, ` +
             `${strValue(row['country'])}, ${strValue(row['latitude'])}, ` +
-            `${strValue(row['longitude'])}, ${beehive.userMap.get(row['creator'])}, ` +
+            `${strValue(row['longitude'])}, ${beehive.userMap[row['creator']]}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ` +
             `${strValue(row['county_district'])}, ${strValue(row['address3'])}, ` +
             `${strValue(row['address6'])}, ${strValue(row['address5'])}, ` +
@@ -60,7 +59,7 @@ async function updateParentForLocations(connection, idMap) {
             if(values.length > 1) {
                 values += ',';
             }
-            values += `(${locationId}, ${beehive.locationMap.get(srcParentId)})`;
+            values += `(${locationId}, ${beehive.locationMap[srcParentId]}`;
         });
 
         let query = update + values + lastPart;
@@ -85,7 +84,7 @@ async function consolidateLocations(srcConn, destConn) {
             });
 
             if (match !== undefined && match !== null) {
-                beehive.locationMap.set(srcLoc['location_id'], match['location_id']);
+                beehive.locationMap[srcLoc['location_id']] =  match['location_id'];
             } else {
                 missingInDest.push(srcLoc);
             }

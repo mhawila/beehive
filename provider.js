@@ -16,15 +16,15 @@ function prepareProviderInsert(rows, nextId) {
             toBeinserted += ',';
         }
 
-        let currentPersonId = row['person_id'] === null ? null : beehive.personMap.get(row['person_id']);
-        let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
-        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+        let currentPersonId = row['person_id'] === null ? null : beehive.personMap[row['person_id']];
+        let retiredBy = row['retired_by'] === null ? null : beehive.userMap[row['retired_by']];
+        let changedBy = row['changed_by'] === null ? null : beehive.userMap[row['changed_by']];
 
-        beehive.providerMap.set(row['provider_id'], nextId);
+        beehive.providerMap[row['provider_id']] =  nextId;
 
         toBeinserted += `(${nextId}, ${currentPersonId}, ` +
             `${strValue(row['name'])}, ${strValue(row['identifier'])}, ` +
-            `${beehive.userMap.get(row['creator'])}, ` +
+            `${beehive.userMap[row['creator']]}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ${changedBy}, ` +
             `${strValue(utils.formatDate(row['date_changed']))}, ` +
             `${row['retired']}, ${retiredBy}, ` +
@@ -52,15 +52,15 @@ function prepareProviderAttributeTypeInsert(rows, nextId) {
             toBeinserted += ',';
         }
 
-        let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
-        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+        let retiredBy = row['retired_by'] === null ? null : beehive.userMap[row['retired_by']];
+        let changedBy = row['changed_by'] === null ? null : beehive.userMap[row['changed_by']];
 
-        beehive.providerAttributeTypeMap.set(row['provider_attribute_type_id'], nextId);
+        beehive.providerAttributeTypeMap[row['provider_attribute_type_id']] =  nextId;
         toBeinserted += `(${nextId}, ${strValue(row['name'])}, ` +
             `${strValue(row['description'])}, ${strValue(row['datatype'])}, ` +
             `${strValue(row['datatype_config'])}, ${strValue(row['preferred_handler'])}, ` +
             `${strValue(row['handler_config'])}, ${row['min_occurs']}, ${row['max_occurs']}` +
-            `${beehive.userMap.get(row['creator'])}, ` +
+            `${beehive.userMap[row['creator']]}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ${changedBy}, ` +
             `${strValue(utils.formatDate(row['date_changed']))}, ` +
             `${row['retired']}, ${retiredBy}, ` +
@@ -85,13 +85,13 @@ function prepareProviderAttributeInsert(rows, nextId) {
         if (toBeinserted.length > 1) {
             toBeinserted += ',';
         }
-        let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
-        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+        let voidedBy = row['voided_by'] === null ? null : beehive.userMap[row['voided_by']];
+        let changedBy = row['changed_by'] === null ? null : beehive.userMap[row['changed_by']];
 
-        toBeinserted += `(${nextId}, ${beehive.providerMap.get(row['provider_id'])}, ` +
-            `${beehive.providerAttributeTypeMap.get(row['attribute_type_id'])}, ` +
+        toBeinserted += `(${nextId}, ${beehive.providerMap[row['provider_id']]}, ` +
+            `${beehive.providerAttributeTypeMap[row['attribute_type_id']]}, ` +
             `${strValue(row['value_reference'])}, ` +
-            `${beehive.userMap.get(row['creator'])}, ` +
+            `${beehive.userMap[row['creator']]}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ` +
             `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}, ` +
             `${row['voided']}, ${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, ` +
@@ -117,8 +117,7 @@ async function consolidateProviderAttributeTypes(srcConn, destConn) {
         });
 
         if (match !== undefined && match !== null) {
-            beehive.providerAttributeTypeMap.set(srcProvAttType['provider_attribute_type_id'],
-                match['provider_attribute_type_id']);
+            beehive.providerAttributeTypeMap[srcProvAttType['provider_attribute_type_id']] = match['provider_attribute_type_id'];
         } else {
             missingInDest.push(srcProvAttType);
         }

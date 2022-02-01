@@ -22,12 +22,12 @@ function preparePersonInsert(rows, nextPersonId) {
         if (toBeinserted.length > 1) {
             toBeinserted += ',';
         }
-        beehive.personMap.set(row['person_id'], nextPersonId);
+        beehive.personMap[row['person_id']] =  nextPersonId;
         toBeinserted += `(${nextPersonId}, '${row['gender']}', ` +
             `${strValue(utils.formatDate(row['birthdate']))},` +
             `${strValue(row['birthdate_estimated'])}, ${row['dead']},` +
             `${strValue(utils.formatDate(row['deathdate']))}, ` +
-            `${strValue(row['cause_of_death'])}, ${beehive.userMap.get(row['creator'])}, ` +
+            `${strValue(row['cause_of_death'])}, ${beehive.userMap[row['creator']]}, ` +
             `${strValue(utils.formatDate(row['date_created']))},` +
             `${strValue(utils.formatDate(row['date_changed']))},` +
             `${row['voided']}, ` +
@@ -49,9 +49,9 @@ function preparePersonAuditInfoUpdateQuery(rows) {
     let values = '';
     let toUpdate = 0;
     rows.forEach(row => {
-        let destPersonId = beehive.personMap.get(row['person_id']);
-        let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
-        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+        let destPersonId = beehive.personMap[row['person_id']];
+        let voidedBy = row['voided_by'] === null ? null : beehive.userMap[row['voided_by']];
+        let changedBy = row['changed_by'] === null ? null : beehive.userMap[row['changed_by']];
         if(destPersonId) {
             toUpdate++;
             if(values.length > 1) {
@@ -74,20 +74,20 @@ function preparePersonNameInsert(rows, nextPersonNameId) {
 
     let toBeinserted = '';
     rows.forEach(row => {
-        let currentPersonId = beehive.personMap.get(row['person_id']);
+        let currentPersonId = beehive.personMap[row['person_id']];
         if (currentPersonId !== undefined) {
             if (toBeinserted.length > 1) {
                 toBeinserted += ',';
             }
-            let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
-            let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+            let voidedBy = row['voided_by'] === null ? null : beehive.userMap[row['voided_by']];
+            let changedBy = row['changed_by'] === null ? null : beehive.userMap[row['changed_by']];
 
             toBeinserted += `(${nextPersonNameId}, ${row['preferred']}, ${currentPersonId}, ` +
                 `${strValue(row['prefix'])}, ${strValue(row['given_name'])}, ` +
                 `${strValue(row['middle_name'])}, ${strValue(row['family_name_prefix'])}, ` +
                 `${strValue(row['family_name'])}, ${strValue(row['family_name2'])}, ` +
                 `${strValue(row['family_name_suffix'])}, ${strValue(row['degree'])}, ` +
-                `${beehive.userMap.get(row['creator'])}, ${strValue(utils.formatDate(row['date_created']))}, ` +
+                `${beehive.userMap[row['creator']]}, ${strValue(utils.formatDate(row['date_created']))}, ` +
                 `${row['voided']}, ${voidedBy}, ` +
                 `${strValue(utils.formatDate(row['date_voided']))}, ${strValue(row['void_reason'])}, ` +
                 `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}, ` +
@@ -111,20 +111,20 @@ function preparePersonAddressInsert(rows, nextId) {
 
     let toBeinserted = '';
     rows.forEach(row => {
-        let currentPersonId = beehive.personMap.get(row['person_id']);
+        let currentPersonId = beehive.personMap[row['person_id']];
         if (currentPersonId !== undefined) {
             if (toBeinserted.length > 1) {
                 toBeinserted += ',';
             }
-            let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
-            let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+            let voidedBy = row['voided_by'] === null ? null : beehive.userMap[row['voided_by']];
+            let changedBy = row['changed_by'] === null ? null : beehive.userMap[row['changed_by']];
 
             toBeinserted += `(${nextId}, ${currentPersonId}, ` +
                 `${row['preferred']}, ${strValue(row['address1'])}, ` +
                 `${strValue(row['address2'])}, ${strValue(row['city_village'])}, ` +
                 `${strValue(row['state_province'])}, ${strValue(row['postal_code'])}, ` +
                 `${strValue(row['country'])}, ${strValue(row['latitude'])}, ` +
-                `${strValue(row['longitude'])}, ${beehive.userMap.get(row['creator'])}, ` +
+                `${strValue(row['longitude'])}, ${beehive.userMap[row['creator']]}, ` +
                 `${strValue(utils.formatDate(row['date_created']))}, ${row['voided']}, ` +
                 `${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, ` +
                 `${strValue(row['void_reason'])}, ${strValue(row['county_district'])}, ` +
@@ -153,18 +153,18 @@ function prepareRelationshipTypeInsert(rows, nextId) {
         if (toBeinserted.length > 1) {
             toBeinserted += ',';
         }
-        let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
-        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+        let retiredBy = row['retired_by'] === null ? null : beehive.userMap[row['retired_by']];
+        let changedBy = row['changed_by'] === null ? null : beehive.userMap[row['changed_by']];
         toBeinserted += `(${nextId}, ${strValue(row['a_is_to_b'])}, ` +
             `${strValue(row['b_is_to_a'])}, ${row['preferred']}, ${row['weight']}, ` +
-            `${strValue(row['description'])}, ${beehive.userMap.get(row['creator'])}, ` +
+            `${strValue(row['description'])}, ${beehive.userMap[row['creator']]}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ` +
             `${uuid(row['uuid'])}, ${row['retired']}, ${retiredBy}, ` +
             `${strValue(utils.formatDate(row['date_retired']))}, ` +
             `${strValue(row['retire_reason'])})`;
 
         //Update the map
-        beehive.relationshipTypeMap.set(row['relationship_type_id'], nextId);
+        beehive.relationshipTypeMap[row['relationship_type_id']] =  nextId;
         nextId++;
     });
 
@@ -184,12 +184,12 @@ function preparePersonAttributeTypeInsert(rows, nextId) {
         if (toBeinserted.length > 1) {
             toBeinserted += ',';
         }
-        let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
-        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+        let retiredBy = row['retired_by'] === null ? null : beehive.userMap[row['retired_by']];
+        let changedBy = row['changed_by'] === null ? null : beehive.userMap[row['changed_by']];
 
         toBeinserted += `(${nextId}, ${strValue(row['name'])}, ` +
             `${strValue(row['description'])}, ${strValue(row['format'])}, ` +
-            `${row['foreign_key']}, ${row['searchable']}, ${beehive.userMap.get(row['creator'])}, ` +
+            `${row['foreign_key']}, ${row['searchable']}, ${beehive.userMap[row['creator']]}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ${changedBy}, ` +
             `${strValue(utils.formatDate(row['date_changed']))}, ${row['retired']}, ` +
             `${retiredBy}, ${strValue(utils.formatDate(row['date_retired']))}, ` +
@@ -197,7 +197,7 @@ function preparePersonAttributeTypeInsert(rows, nextId) {
             `${uuid(row['uuid'])}, ${row['sort_weight']})`;
 
         //Update the map
-        beehive.personAttributeTypeMap.set(row['person_attribute_type_id'], nextId);
+        beehive.personAttributeTypeMap[row['person_attribute_type_id']] =  nextId;
         nextId++;
     });
 
@@ -216,13 +216,13 @@ function preparePersonAttributeInsert(rows, nextId) {
         if (toBeinserted.length > 1) {
             toBeinserted += ',';
         }
-        let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
-        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+        let voidedBy = row['voided_by'] === null ? null : beehive.userMap[row['voided_by']];
+        let changedBy = row['changed_by'] === null ? null : beehive.userMap[row['changed_by']];
 
-        toBeinserted += `(${nextId}, ${beehive.personMap.get(row['person_id'])}, ` +
+        toBeinserted += `(${nextId}, ${beehive.personMap[row['person_id']]}, ` +
             `${strValue(row['value'])}, ` +
-            `${beehive.personAttributeTypeMap.get(row['person_attribute_type_id'])}, ` +
-            `${beehive.userMap.get(row['creator'])}, ` +
+            `${beehive.personAttributeTypeMap[row['person_attribute_type_id']]}, ` +
+            `${beehive.userMap[row['creator']]}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ` +
             `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}, ` +
             `${row['voided']}, ${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, ` +
@@ -246,12 +246,12 @@ function prepareRelationshipInsert(rows, nextId) {
         if (toBeinserted.length > 1) {
             toBeinserted += ',';
         }
-        let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
-        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+        let voidedBy = row['voided_by'] === null ? null : beehive.userMap[row['voided_by']];
+        let changedBy = row['changed_by'] === null ? null : beehive.userMap[row['changed_by']];
 
-        toBeinserted += `(${nextId}, ${beehive.personMap.get(row['person_a'])}, ` +
-            `${beehive.relationshipTypeMap.get(row['relationship'])}, ` +
-            `${beehive.personMap.get(row['person_b'])}, ${beehive.userMap.get(row['creator'])}, ` +
+        toBeinserted += `(${nextId}, ${beehive.personMap[row['person_a']]}, ` +
+            `${beehive.relationshipTypeMap[row['relationship']]}, ` +
+            `${beehive.personMap[row['person_b']]}, ${beehive.userMap[['creator']]}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ` +
             `${row['voided']}, ${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, ` +
             `${strValue(row['void_reason'])}, ${uuid(row['uuid'])}, ` +
@@ -277,18 +277,18 @@ function prepareUserInsert(rows, nextUserId) {
         if (toBeinserted.length > 1) {
             toBeinserted += ',';
         }
-        beehive.userMap.set(row['user_id'], nextUserId);
+        beehive.userMap[row['user_id']] =  nextUserId;
 
         //Some users may be associated with persons that are not moved yet.
-        let personId = beehive.personMap.get(row['person_id']);
+        let personId = beehive.personMap[row['person_id']];
         if(personId === undefined) {
             //This person is not yet moved.
             personId = 1;       // Place holder (to be updated later)
-            movedLaterPersonsMap.set(nextUserId, row['person_id']);
+            movedLaterPersonsMap[nextUserId] =  row['person_id'];
         }
         toBeinserted += `(${nextUserId}, '${row['system_id']}', ${strValue(row['username'])},` +
             `'${row['password']}', '${row['salt']}', ${strValue(row['secret_question'])}, ` +
-            `${strValue(row['secret_answer'])}, ${beehive.userMap.get(row['creator'])}, ` +
+            `${strValue(row['secret_answer'])}, ${beehive.userMap[row['creator']]}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ` +
             `${strValue(utils.formatDate(row['date_changed']))}, ` +
             `${personId}, ${row['retired']}, ` +
@@ -311,9 +311,9 @@ function prepareUserAuditInfoUpdateQuery(rows) {
     let values = '';
     let toUpdate = 0;
     rows.forEach(row => {
-        let destUserId = beehive.userMap.get(row['user_id']);
-        let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
-        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+        let destUserId = beehive.userMap[row['user_id']];
+        let retiredBy = row['retired_by'] === null ? null : beehive.userMap[row['retired_by']];
+        let changedBy = row['changed_by'] === null ? null : beehive.userMap[row['changed_by']];
         if(destUserId) {
             toUpdate++;
             if(values.length > 1) {
@@ -384,7 +384,7 @@ function prepareUserRoleInsert(rows) {
     let insert = 'INSERT IGNORE INTO user_role(user_id, role) VALUES ';
     let toBeinserted = '';
     rows.forEach(row => {
-        let userId = beehive.userMap.get(row['user_id']);
+        let userId = beehive.userMap[row['user_id']];
         if (userId) {
             if (toBeinserted.length > 1) {
                 toBeinserted += ',';
@@ -490,8 +490,7 @@ async function consolidatePersonAttributeTypes(srcConn, destConn) {
                             sAttributeType['uuid'] === dAttributeType['uuid']);
             });
             if (match !== undefined) {
-                beehive.personAttributeTypeMap.set(sAttributeType['person_attribute_type_id'],
-                    match['person_attribute_type_id']);
+                beehive.personAttributeTypeMap[sAttributeType['person_attribute_type_id']] = match['person_attribute_type_id'];
             } else {
                 toAdd.push(sAttributeType);
             }
@@ -526,8 +525,7 @@ async function consolidateRelationshipTypes(srcConn, destConn) {
                 sRelshipType['uuid'] === dRelshipType['uuid']);
         });
         if (match !== undefined) {
-            beehive.relationshipTypeMap.set(sRelshipType['relationship_type_id'],
-                match['relationship_type_id']);
+            beehive.relationshipTypeMap[sRelshipType['relationship_type_id']] = match['relationship_type_id'];
         } else {
             toAdd.push(sRelshipType);
         }
@@ -883,7 +881,7 @@ async function updateUsersPersonIds(connection, idMap) {
         if(values.length > 1) {
             values += ',';
         }
-        values += `(${userId}, ${beehive.personMap.get(personId)})`;
+        values += `(${userId}, ${beehive.personMap[personId]})`;
     });
 
     let statement = update + values + lastPart;
@@ -1056,10 +1054,10 @@ async function main(srcConn, destConn) {
     }
 
     //Update the user map with user0's mappings.
-    beehive.userMap.set(srcAdminUserId, 1);
+    beehive.userMap[srcAdminUserId] =  1;
 
     //Set personMap admin person mapping
-    beehive.personMap.set(1,1);
+    beehive.personMap[1] = 1;
 
     // Create the user tree.
     let tree = await createUserTree(srcConn, srcAdminUserId);
