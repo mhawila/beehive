@@ -164,30 +164,9 @@
 
             if(match) {
                 global.excludedUsersIds.push(su['user_id']);
-                global.excludedPersonIds.push(su['person_id']);
                 global.beehive.userMap.set(su['user_id'], match['user_id']);
-                global.beehive.personMap.set(su['person_id'], match['person_id']);
             }
         });
-    }
-
-    async function _mapSameUuidsUsers(connection, config) {
-        let query = `SELECT u1.user_id source_user_id, u1.person_id source_person_id, `
-            + `u2.user_id dest_user_id, u2.person_id dest_person_id  `
-            + `FROM ${config.source.openmrsDb}.users u1 INNER JOIN ${config.destination.openmrsDb}.users u2 using(uuid)`;
-        try {
-            let [records] = await connection.query(query);
-            records.forEach(record => {
-                global.beehive.userMap.set(record['source_user_id'], record['dest_user_id']);
-                global.beehive.personMap.set(record['source_person_id'], record['dest_person_id']);
-                global.excludedPersonIds.push(record['source_person_id']);
-                global.excludedUsersIds.push(record['source_user_id']);
-            });
-        } catch(trouble) {
-            utils.logError('Error while mapping ignored users (due to same uuids between source and destination)');
-            utils.logError(`Query during error: ${query}`);
-            throw trouble;
-        }
     }
 
     async function _prepareForDryRun(srcConn, destConn, config) {
@@ -205,8 +184,6 @@
             { table: 'visit', column: 'visit_id', map: global.beehive.visitMap, excluded: global.excludedVisitIds },
             { table: 'obs', column: 'obs_id', map: global.beehive.obsMap, excluded: global.excludedObsIds },
         ];
-
-        await _mapSameUuidsUsers(srcConn, config);
 
         for(let neededTable of neededTables) {
             await utils.mapSameUuidsRecords(srcConn, neededTable.table, neededTable.column, neededTable.map, neededTable.excluded);
