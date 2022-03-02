@@ -84,8 +84,10 @@ async function consolidateLocations(srcConn, destConn) {
         let missingInDest = [];
         srcLocs.forEach(srcLoc => {
             let match = destLocs.find(destLoc => {
-                return (srcLoc['name'] === destLoc['name'] ||
-                            srcLoc['uuid'] === destLoc['uuid']);
+                return ((srcLoc['name'] === destLoc['name'] &&
+                             srcLoc['county_district'] === destLoc['county_district'] &&
+                             srcLoc['state_province'] === destLoc['state_province']) ||
+                                srcLoc['uuid'] === destLoc['uuid']);
             });
 
             if (match !== undefined && match !== null) {
