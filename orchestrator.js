@@ -5,14 +5,15 @@ const integrityChecks = require('./integrity-checks');
 const prepare = preparation.prepare;
 const insertSource = preparation.insertSource;
 const movePersonsUsersAndAssociatedTables = require('./person-users');
-const locationsMover = require('./location');
-const patientsMover = require('./patient');
-const programsMover = require('./patient-programs');
-const providersMover = require('./provider');
-const visitsMover = require('./visit');
-const encounterMover = require('./encounter');
-const obsMover = require('./obs');
-const gaacModuleTablesMover = require('./gaac');
+const locationsCopier = require('./location');
+const patientsCopier = require('./patient');
+const programsCopier = require('./patient-programs');
+const providersCopier = require('./provider');
+const visitsCopier = require('./visit');
+const encounterCopier = require('./encounter');
+const personAttributesCopier = require('./person-attribute');
+const obsCopier = require('./obs');
+const gaacModuleTablesCopier = require('./gaac');
 const utils = require('./utils');
 const logTime = utils.logTime;
 const config = require('./config');
@@ -66,29 +67,32 @@ async function orchestration() {
         await movePersonsUsersAndAssociatedTables(srcConn, destConn);
 
         utils.logInfo('Consolidating locations...');
-        let movedLocations = await locationsMover(srcConn, destConn);
+        let movedLocations = await locationsCopier(srcConn, destConn);
         utils.logOk(`Ok...${movedLocations} locations moved.`);
 
         //patients & identifiers
-        await patientsMover(srcConn, destConn);
+        await patientsCopier(srcConn, destConn);
 
         //programs
-        await programsMover(srcConn, destConn);
+        await programsCopier(srcConn, destConn);
 
         //providers & provider attributes
-        await providersMover(srcConn, destConn);
+        await providersCopier(srcConn, destConn);
 
         //visits & visit types
-        await visitsMover(srcConn, destConn);
+        await visitsCopier(srcConn, destConn);
 
         //encounters, encounter_types, encounter_roles & encounter_providers
-        await encounterMover(srcConn, destConn);
+        await encounterCopier(srcConn, destConn);
 
+        // person_attribute_type, person_attribute
+        await personAttributesCopier(srcConn, destConn);
+        
         //obs
-        await obsMover(srcConn, destConn);
+        await obsCopier(srcConn, destConn);
 
         //gaac tables
-        await gaacModuleTablesMover(srcConn, destConn);
+        await gaacModuleTablesCopier(srcConn, destConn);
 
         if (!persist) {
             await insertSource(destConn, config.source.location);
