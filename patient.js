@@ -145,7 +145,7 @@ async function consolidatePatientIdentifierTypes(srcConn, destConn) {
 }
 
 async function movePatients(srcConn, destConn) {
-    let condition = patientCopyCondition();
+    let condition = await patientCopyCondition(destConn);
     if(condition !== null) {
         return await moveAllTableRecords(srcConn, destConn, 'patient', 'patient_id', preparePatientInsert, condition);
     }
@@ -153,7 +153,7 @@ async function movePatients(srcConn, destConn) {
 }
 
 async function movePatientIdentifiers(srcConn, destConn) {
-    let condition = patientCopyCondition();
+    let condition = await patientCopyCondition(destConn);
     if(condition !== null) {
         return await moveAllTableRecords(srcConn, destConn, 'patient_identifier',
             'patient_identifier_id', preparePatientIdentifierInsert, condition);
@@ -161,22 +161,43 @@ async function movePatientIdentifiers(srcConn, destConn) {
     return 0;    
 }
 
-function patientCopyCondition() {
+async function patientCopyCondition(destConn) {
     let personIdsMoved = [];
-    global.beehive.personMap.forEach((destPersonId, srcPersonId) => {
-        if(!global.excludedPersonIds.includes(srcPersonId)) {
-            personIdsMoved.push(srcPersonId);
-        }
+    let personMapDestIds = [];
+    global.beehive.personMap.forEach(destPersonId => {
+        personMapDestIds.push(destPersonId);
     });
-    if(personIdsMoved.length > 0) {
-        return `patient_id IN (${personIdsMoved.join(',')})`;
+    
+    let query = `SELECT patient_id FROM patient WHERE patient_id IN (${personMapDestIds.join(',')})`;
+    try {
+        let [results] = await destConn.query(query);
+        let correspondingPatientsAlreadyInDest = [];
+        results.forEach(record => {
+            correspondingPatientsAlreadyInDest.push(record['patient_id']);
+        });
+
+        global.beehive.personMap.forEach((destPersonId, srcPersonId) => {
+            if(!global.excludedPersonIds.includes(srcPersonId) || !correspondingPatientsAlreadyInDest.includes(destPersonId)) {
+                personIdsMoved.push(srcPersonId);
+            }
+        });
+
+        if(personIdsMoved.length > 0) {
+            return `patient_id IN (${personIdsMoved.join(',')})`;
+        }
+        return null;
+    } catch(ex) {
+        utils.logError('Error: While evaluating patient condition');
+        if(query) {
+            utils.logError('Query during error:');
+            utils.logError(query);
+        }
+        throw ex;
     }
-    return null;
 }
 
 async function main(srcConn, destConn) {
     utils.logInfo('Moving patients...');
-    let iSrcPatientCount = await getCount(srcConn, 'patient');
     let iDestPatientCount = await getCount(destConn, 'patient');
 
     let moved = await movePatients(srcConn, destConn);

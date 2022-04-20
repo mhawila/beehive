@@ -37,7 +37,7 @@ function prepareVisitTypeInsert(rows, nextId) {
 }
 
 function prepareVisitInsert(rows, nextId) {
-  let insert = 'INSERT IGNORE INTO visit(visit_id, patient_id, visit_type_id, '
+  let insert = 'INSERT INTO visit(visit_id, patient_id, visit_type_id, '
         + 'date_started, date_stopped, indication_concept_id, location_id, '
         + 'creator, date_created, changed_by, date_changed, voided, voided_by, '
         + 'date_voided, void_reason, uuid) VALUES ';
