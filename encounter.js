@@ -114,10 +114,13 @@ function prepareEncounterInsert(rows, nextId) {
             let voidedBy = row['voided_by'] === null ? null : beehive.userMap.get(row['voided_by']);
             let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
             let visitId = row['visit_id'] === null ? null : beehive.visitMap.get(row['visit_id']);
+	    let location_id = row['location_id'] === null ? null : beehive.locationMap.get(row['location_id']);
+
             beehive.encounterMap.set(row['encounter_id'], nextId);
 
             toBeinserted += `(${nextId}, ${beehive.encounterTypeMap.get(row['encounter_type'])}, ` +
                 `${beehive.personMap.get(row['patient_id'])}, ` +
+		`${location_id}, ${row['form_id']}, ` +
                 `${beehive.locationMap.get(row['location_id'])}, ${row['form_id']}, ` +
                 `${visitId}, ${strValue(utils.formatDate(row['encounter_datetime']))}, ` +
                 `${beehive.userMap.get(row['creator'])}, ` +
