@@ -107,7 +107,7 @@ async function orchestration() {
             utils.logOk(`Done...All Data from ${config.source.location} copied.`);
         }
     } catch (ex) {
-        destConn.query('ROLLBACK');
+        if(destConn) destConn.query('ROLLBACK');
         utils.logError(ex);
         utils.logInfo('Aborting...Rolled back, no data has been moved');
     } finally {
