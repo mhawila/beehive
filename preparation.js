@@ -146,12 +146,7 @@
     }
 
     async function _usersAndAssociatedPersonsToExclude(srcConn, destConn) {
-        let exclude = `SELECT * from users WHERE system_id IN ('daemon', 'admin')`;
-        let [results] = await srcConn.query(exclude);
-        global.excludedPersonIds = results.map(result => result['person_id']);
-        global.excludedUsersIds = results.map(result => result['user_id']);
-
-        let q = `SELECT * FROM users where system_id NOT IN ('admin', 'daemon')`;
+        let q = `SELECT * FROM users`;
         let [srcUsers] = await srcConn.query(q);
         let [destUsers] = await destConn.query(q);
 

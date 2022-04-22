@@ -12,7 +12,7 @@ let beehive = global.beehive;
 const movedLaterPersonsMap = new Map();
 
 function preparePersonInsert(rows, nextPersonId) {
-    let insert = 'INSERT IGNORE INTO person(person_id, gender, birthdate,' +
+    let insert = 'INSERT INTO person(person_id, gender, birthdate,' +
         'birthdate_estimated, dead, death_date, cause_of_death, creator,' +
         'date_created, date_changed, voided, ' +
         'date_voided, void_reason, uuid) VALUES ';
@@ -952,26 +952,10 @@ async function main(srcConn, destConn) {
     utils.logInfo(`Initial numnber of users in destination: ${initialDestUsersCount}`);
 
     // Get source's admin user. (This is usually user with user_id=1, user0)
-    let srcAdminUserQuery = `SELECT * FROM users where user_id=1 or
-    system_id='admin' order by user_id`;
-    let [rows, fields] = await srcConn.query(srcAdminUserQuery);
+    let srcAdminUserQuery = `SELECT * FROM users where system_id='admin'`;
+    let [rows] = await srcConn.query(srcAdminUserQuery);
 
-    let srcAdminUserId = 1;
-    if (rows.every(row => {
-            return row['user_id'] == !1;
-        })) {
-        let r = rows.find(row => {
-            return row['system_id'] === 'admin';
-        });
-
-        srcAdminUserId = r['user_id'];
-    }
-
-    //Update the user map with user0's mappings.
-    beehive.userMap.set(srcAdminUserId, 1);
-
-    //Set personMap admin person mapping
-    beehive.personMap.set(1,1);
+    let srcAdminUserId = rows[0]['user_id'];
 
     // Create the user tree.
     let tree = await createUserTree(srcConn, srcAdminUserId);
