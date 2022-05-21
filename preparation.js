@@ -103,7 +103,7 @@
     }
 
     async function _insertSource(connection, source) {
-        let s = `insert into beehive_merge_source values(${stringValue(source)})`;
+        let s = `insert into beehive_merge_source(source) values(${stringValue(source)})`;
         utils.logDebug(s);
         let [r] = await connection.query(s);
         return r.affectedRows;
@@ -111,7 +111,7 @@
 
     async function _createSourceTable(connection) {
         let sourceTable = 'CREATE TABLE IF NOT EXISTS beehive_merge_source(' +
-            'source VARCHAR(50) PRIMARY KEY' +
+            'source VARCHAR(50) PRIMARY KEY, merge_date datetime NULL DEFAULT CURRENT_TIMESTAMP' +
             ')';
 
         utils.logDebug(sourceTable);
