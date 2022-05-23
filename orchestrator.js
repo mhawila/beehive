@@ -17,7 +17,7 @@ const gaacModuleTablesCopier = require('./gaac');
 const utils = require('./utils');
 const logTime = utils.logTime;
 const config = require('./config');
-
+global.openmrsDataModelVersion = 1;
 
 async function orchestration() {
     let persist = config.persist || false;
@@ -49,7 +49,31 @@ async function orchestration() {
         srcConn = await connection(config.source);
         destConn = await connection(config.destination);
 
-        // Check for UUID collisions
+        utils.logInfo('INFO: Detecting Openmrs Data Model Version');
+        let getAllergyColumnQuery = (databaseName) => {
+            return 'SELECT count(*) AS col_count from information_schema.COLUMNS ' + 
+                `WHERE TABLE_SCHEMA = '${databaseName}' AND TABLE_NAME = 'patient' ` +
+                `AND COLUMN_NAME = 'allergy_status'`;
+        };
+        
+        let allergyQuery = getAllergyColumnQuery(config.source.openmrsDb);
+        let [results] = await srcConn.query(allergyQuery);
+        let srcColCount = results[0]['col_count'];
+
+        allergyQuery = getAllergyColumnQuery(config.destination.openmrsDb);
+        [results] = await destConn.query(allergyQuery);
+        let destColCount = results[0]['col_count'];
+
+        if(srcColCount !== destColCount) {
+            utils.logInfo(`INFO: Copying between different openmrs data models, possible data losses`);
+        } else if(srcColCount === 0 && destColCount === 0) {
+            utils.logInfo(`INFO: Openmrs Data Model Version 1.x Detected`);
+        } else if(srcColCount === 1 && destColCount === 1) {
+            utils.logInfo(`INFO: Openmrs Data Model Version 2.x Detected`)
+            global.openmrsDataModelVersion = 2;
+        } else {
+            utils.logInfo('INFO: Could not detect Openmrs Data Model Version, presuming 1.x');
+        }
 
         if(dryRun) {
             utils.logInfo(logTime(), ': Partial preparation for DRY run');

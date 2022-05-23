@@ -10,9 +10,15 @@ function prepareLocationInsert(rows, nextId) {
         'address2, city_village, state_province, postal_code, country, latitude, ' +
         'longitude, creator, date_created, county_district, address3, address6, ' +
         'address5, address4, retired, retired_by, date_retired, retire_reason, ' +
-        'parent_location, uuid, changed_by, date_changed, address7, address8, address9, ' +
-        'address10, address11, address12, address13, address14, address15) VALUES ';
+        'parent_location, uuid, changed_by, date_changed';
 
+    if(global.openmrsDataModelVersion === 2) {
+        insert += ', address7, address8, address9, address10, ' +
+        'address11, address12, address13, address14, address15) VALUES ';
+    } else {
+        insert += ') VALUES ';
+    }
+    
     let toBeinserted = '';
     rows.forEach(row => {
         if (toBeinserted.length > 1) {
@@ -42,11 +48,16 @@ function prepareLocationInsert(rows, nextId) {
             `${strValue(row['address4'])}, ${row['retired']}, ${retiredBy}, ` +
             `${strValue(utils.formatDate(row['date_retired']))}, ` +
             `${strValue(row['retire_reason'])}, ${parentLocation}, ` +
-            `${utils.uuid(row['uuid'])}, ${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}, `+
-            `${strValue(row['address7'])}, ${strValue(row['address8'])}, ${strValue(row['address9'])},` +
+            `${utils.uuid(row['uuid'])}, ${changedBy}, ${strValue(utils.formatDate(row['date_changed']))}`;
+
+        if(global.openmrsDataModelVersion === 2) {
+            toBeinserted +=  `, ${strValue(row['address7'])}, ${strValue(row['address8'])}, ${strValue(row['address9'])},` +
             `${strValue(row['address10'])}, ${strValue(row['address11'])}, ${strValue(row['address12'])},` +
             `${strValue(row['address13'])}, ${strValue(row['address14'])}, ${strValue(row['address15'])})`;
-
+        } else {
+            toBeinserted += ')';
+        }
+           
         nextId++;
     });
 

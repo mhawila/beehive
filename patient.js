@@ -9,7 +9,13 @@ let beehive = global.beehive;
 function preparePatientInsert(rows) {
     let insert = 'INSERT INTO patient(patient_id, creator, date_created, ' +
         'changed_by, date_changed, voided, voided_by, date_voided, ' +
-        'void_reason, allergy_status) VALUES ';
+        'void_reason';
+
+    if(global.openmrsDataModelVersion === 2) {
+        insert += ', allergy_status) VALUES ';
+    } else {
+        insert += ') VALUES ';
+    }
 
     let toBeinserted = '';
     rows.forEach(row => {
@@ -28,7 +34,13 @@ function preparePatientInsert(rows) {
             `${changedBy}, ${strValue(utils.formatDate(row['date_changed']))},` +
             `${row['voided']}, ${voidedBy},` +
             `${strValue(utils.formatDate(row['date_voided']))},` +
-            `${strValue(row['void_reason'])}, ${strValue(row['allergy_status'])})`;
+            `${strValue(row['void_reason'])}`;
+
+        if(global.openmrsDataModelVersion === 2) {
+            toBeinserted += `, ${strValue(row['allergy_status'])})`;
+        } else {
+            toBeinserted += ')';
+        }
     });
 
     let query = insert + toBeinserted;
@@ -39,8 +51,13 @@ function prepareIdentifierTypeInsert(rows, nextId) {
     let insert = 'INSERT INTO patient_identifier_type(patient_identifier_type_id, ' +
         'name, description, format, check_digit, creator, date_created, ' +
         'required, format_description, validator, retired, retired_by, ' +
-        'date_retired, retire_reason, uuid, location_behavior, ' +
-        'changed_by, date_changed) VALUES ';
+        'date_retired, retire_reason, uuid, location_behavior, uniqueness_behavior';
+
+    if(global.openmrsDataModelVersion === 2) {
+        insert += ', changed_by, date_changed) VALUES ';
+    } else {
+        insert += ') VALUES ';
+    }
 
     let toBeinserted = '';
     rows.forEach(row => {
@@ -49,7 +66,6 @@ function prepareIdentifierTypeInsert(rows, nextId) {
         }
 
         let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
-        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
 
         beehive.identifierTypeMap.set(row['patient_identifier_type_id'], nextId);
 
@@ -61,9 +77,14 @@ function prepareIdentifierTypeInsert(rows, nextId) {
             `${strValue(row['validator'])}, ${row['retired']}, ${retiredBy}, ` +
             `${strValue(utils.formatDate(row['date_retired']))}, ` +
             `${strValue(row['retire_reason'])}, ${utils.uuid(row['uuid'])}, ` +
-            `${strValue(row['location_behavior'])}, ${changedBy}, ` +
-            `${strValue(utils.formatDate(row['date_changed']))})`;
+            `${strValue(row['location_behavior'])}, ${strValue(row['uniqueness_behavior'])}`;
 
+            if(global.openmrsDataModelVersion === 2) {
+                let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+                toBeinserted += `, ${changedBy}, ${strValue(utils.formatDate(row['date_changed']))})`;
+            } else {
+                toBeinserted += ')';
+            }
         nextId++;
     });
 

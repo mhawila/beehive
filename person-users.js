@@ -107,8 +107,14 @@ function preparePersonAddressInsert(rows, nextId) {
         'postal_code, country, latitude, longitude, creator, date_created, ' +
         'voided, voided_by, date_voided, void_reason, county_district, ' +
         'address3, address6, address5, address4, uuid, date_changed, ' +
-        'changed_by, start_date, end_date, address7, address8, address9, ' +
-        'address10, address11, address12, address13, address14, address15) VALUES ';
+        'changed_by, start_date, end_date';
+
+    if(global.openmrsDataModelVersion === 2) {
+        insert += ', address7, address8, address9, address10, ' +
+        'address11, address12, address13, address14, address15) VALUES ';
+    } else {
+        insert += ') VALUES ';
+    }
 
     let toBeinserted = '';
     rows.forEach(row => {
@@ -133,11 +139,15 @@ function preparePersonAddressInsert(rows, nextId) {
                 `${strValue(row['address5'])}, ${strValue(row['address4'])}, ` +
                 `${uuid(row['uuid'])}, ${strValue(utils.formatDate(row['date_changed']))}, ` +
                 `${changedBy}, ${strValue(utils.formatDate(row['start_date']))}, ` +
-                `${strValue(utils.formatDate(row['end_date']))}, `+
-                `${strValue(row['address7'])}, ${strValue(row['address8'])}, ${strValue(row['address9'])},` +
+                `${strValue(utils.formatDate(row['end_date']))}`;
+
+            if(global.openmrsDataModelVersion === 2) {
+                toBeinserted +=  `, ${strValue(row['address7'])}, ${strValue(row['address8'])}, ${strValue(row['address9'])},` +
                 `${strValue(row['address10'])}, ${strValue(row['address11'])}, ${strValue(row['address12'])},` +
                 `${strValue(row['address13'])}, ${strValue(row['address14'])}, ${strValue(row['address15'])})`;
-
+            } else {
+                toBeinserted += ')';
+            }
             nextId++;
         }
     });
@@ -150,8 +160,13 @@ function preparePersonAddressInsert(rows, nextId) {
 function prepareRelationshipTypeInsert(rows, nextId) {
     let insert = 'INSERT INTO relationship_type (relationship_type_id, a_is_to_b, ' +
         'b_is_to_a, preferred, weight, description, creator, date_created, ' +
-        'uuid, retired, retired_by, date_retired, retire_reason, ' +
-        'changed_by, date_changed) VALUES ';
+        'uuid, retired, retired_by, date_retired, retire_reason';
+
+    if(global.openmrsDataModelVersion === 2) {
+        insert += ', changed_by, date_changed) VALUES ';
+    } else {
+        insert += ') VALUES ';
+    }
 
     let toBeinserted = '';
     rows.forEach(row => {
@@ -159,16 +174,20 @@ function prepareRelationshipTypeInsert(rows, nextId) {
             toBeinserted += ',';
         }
         let retiredBy = row['retired_by'] === null ? null : beehive.userMap.get(row['retired_by']);
-        let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
         toBeinserted += `(${nextId}, ${strValue(row['a_is_to_b'])}, ` +
             `${strValue(row['b_is_to_a'])}, ${row['preferred']}, ${row['weight']}, ` +
             `${strValue(row['description'])}, ${beehive.userMap.get(row['creator'])}, ` +
             `${strValue(utils.formatDate(row['date_created']))}, ` +
             `${uuid(row['uuid'])}, ${row['retired']}, ${retiredBy}, ` +
             `${strValue(utils.formatDate(row['date_retired']))}, ` +
-            `${strValue(row['retire_reason'])}, ${changedBy}, ` +
-            `${strValue(utils.formatDate(row['date_changed']))})`;
+            `${strValue(row['retire_reason'])}`;
 
+        if(global.openmrsDataModelVersion === 2) {
+            let changedBy = row['changed_by'] === null ? null : beehive.userMap.get(row['changed_by']);
+            toBeinserted += `, ${changedBy}, ${strValue(utils.formatDate(row['date_changed']))})`;
+        } else {
+            toBeinserted += ')';
+        }   
         //Update the map
         beehive.relationshipTypeMap.set(row['relationship_type_id'], nextId);
         nextId++;

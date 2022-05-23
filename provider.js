@@ -1,15 +1,21 @@
-let utils = require('./utils');
-let strValue = utils.stringValue;
-let moveAllTableRecords = utils.moveAllTableRecords;
-let consolidateTableRecords = utils.consolidateRecords;
+const config = require('./config');
+const utils = require('./utils');
+const strValue = utils.stringValue;
+const moveAllTableRecords = utils.moveAllTableRecords;
+const consolidateTableRecords = utils.consolidateRecords;
 
-let beehive = global.beehive;
+const beehive = global.beehive;
 
 function prepareProviderInsert(rows, nextId) {
     let insert = 'INSERT IGNORE INTO provider(provider_id, person_id, name, identifier, ' +
         'creator, date_created, changed_by, date_changed, retired, retired_by, ' +
-        'date_retired, retire_reason, uuid) VALUES ';
+        'date_retired, retire_reason, uuid';
 
+    if(global.openmrsDataModelVersion === 2) {
+        insert += ', provider_role_id) VALUES ';
+    } else {
+        insert += ') VALUES ';
+    }
     let toBeinserted = '';
     rows.forEach(row => {
         if (toBeinserted.length > 1) {
@@ -29,8 +35,13 @@ function prepareProviderInsert(rows, nextId) {
             `${strValue(utils.formatDate(row['date_changed']))}, ` +
             `${row['retired']}, ${retiredBy}, ` +
             `${strValue(utils.formatDate(row['date_retired']))}, ` +
-            `${strValue(row['retire_reason'])}, ${utils.uuid(row['uuid'])})`;
+            `${strValue(row['retire_reason'])}, ${utils.uuid(row['uuid'])}`;
 
+        if(global.openmrsDataModelVersion === 2) {
+            toBeinserted +=  `, ${row['provider_role_id']})`;
+        } else {
+            toBeinserted += ')';
+        }
         nextId++;
     });
 

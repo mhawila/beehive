@@ -15,7 +15,13 @@ function prepareObsInsert(rows, nextId) {
             + 'value_drug, value_datetime, value_numeric, value_modifier, '
             + 'value_text, value_complex, comments, previous_version, creator, '
             + 'date_created, voided, voided_by, '
-            + 'date_voided, void_reason, uuid, form_namespace_and_path, status, interpretation) VALUES ';
+            + 'date_voided, void_reason, uuid, form_namespace_and_path, ';
+            
+    if(global.openmrsDataModelVersion === 2) {
+        insert += 'status, interpretation) VALUES ';
+    } else {
+        insert += 'value_boolean) VALUES ';
+    }
 
     let toBeinserted = '';
     for(let i = 0; i < rows.length; i++) {
@@ -70,9 +76,14 @@ function prepareObsInsert(rows, nextId) {
                 + `${strValue(utils.formatDate(row['date_created']))}, `
                 + `${row['voided']}, ${voidedBy}, ${strValue(utils.formatDate(row['date_voided']))}, `
                 + `${strValue(row['void_reason'])}, ${utils.uuid(row['uuid'])}, `
-                + `${strValue(row['form_namespace_and_path'])}, ${strValue(row['status'])}, `
-                + `${strValue(row['interpretation'])})`;
-        
+                + `${strValue(row['form_namespace_and_path'])}, `;
+            
+                if(global.openmrsDataModelVersion === 2) {
+                    toBeinserted +=  `${strValue(row['status'])}, ${strValue(row['interpretation'])})`;
+                } else {
+                    toBeinserted += `${row['value_boolean']})`;
+                }
+
             nextId++;
         }
     }
