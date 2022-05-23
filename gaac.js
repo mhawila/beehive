@@ -2,7 +2,7 @@ const utils = require('./utils');
 const logTime = utils.logTime;
 const strValue = utils.stringValue;
 const getCount = utils.getCount;
-const moveAllTableRecords = utils.moveAllTableRecords;
+const moveAllTableRecords = utils.copyAllTableRecords;
 const consolidateRecords = utils.consolidateRecords;
 
 let beehive = global.beehive;

@@ -280,15 +280,22 @@ async function personIdsToexclude(connection) {
  * @param {String} column 
  * @param {Map} map 
  */
-async function mapSameUuidsRecords(connection, table, column, map, arrayOfExcludedIds) {
+async function mapSameUuidsRecords(connection, table, column, arrayOfExcludedIds, map) {
     let query = `SELECT t1.${column} source_value, t2.${column} dest_value `
         + `FROM ${config.source.openmrsDb}.${table} t1 INNER JOIN ${config.destination.openmrsDb}.${table} t2 using(uuid)`;
     try {
         let [records] = await connection.query(query);
-        records.forEach(record => {
-            map.set(record['source_value'], record['dest_value']);
-            arrayOfExcludedIds.push(record['source_value']);
-        });
+        if(map) {
+            records.forEach(record => {
+                map.set(record['source_value'], record['dest_value']);
+                arrayOfExcludedIds.push(record['source_value']);
+            });
+        } else {
+            records.forEach(record => {
+                arrayOfExcludedIds.push(record['source_value']);
+            });
+        }
+        
     } catch(trouble) {
         logError(`Error while mapping same uuids records for table ${table}`);
         logError(`Query during error: ${query}`);
@@ -301,7 +308,7 @@ module.exports = {
     getCount: getCount,
     getCountIgnoringDestinationDuplicateUuids: getCountIgnoringDestinationDuplicateUuids,
     stringValue: stringValue,
-    moveAllTableRecords: moveAllTableRecords,
+    copyAllTableRecords: moveAllTableRecords,
     formatDate: formatDate,
     logTime: logTime,
     logOk: logOk,

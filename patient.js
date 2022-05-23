@@ -2,7 +2,7 @@ const utils = require('./utils');
 const logTime = utils.logTime;
 const strValue = utils.stringValue;
 const getCount = utils.getCount;
-const moveAllTableRecords = utils.moveAllTableRecords;
+const moveAllTableRecords = utils.copyAllTableRecords;
 
 let beehive = global.beehive;
 
@@ -174,12 +174,16 @@ async function movePatients(srcConn, destConn) {
 }
 
 async function movePatientIdentifiers(srcConn, destConn) {
-    let condition = await patientCopyCondition(destConn);
-    if(condition !== null) {
-        return await moveAllTableRecords(srcConn, destConn, 'patient_identifier',
-            'patient_identifier_id', preparePatientIdentifierInsert, condition);
+    let excludedPatientIdentifiersId = [];
+    let condition = null;
+    await utils.mapSameUuidsRecords(srcConn, 'patient_identifier', 'patient_identifier_id', excludedPatientIdentifiersId);
+    if(excludedPatientIdentifiersId.length > 0) {
+        let toExclude = '(' + excludedPatientIdentifiersId.join(',') + ')';
+        condition = `person_identifier_id NOT IN ${toExclude}`;
     }
-    return 0;    
+    
+    return await moveAllTableRecords(srcConn, destConn, 'patient_identifier',
+        'patient_identifier_id', preparePatientIdentifierInsert, condition);
 }
 
 async function patientCopyCondition(destConn) {

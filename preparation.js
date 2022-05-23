@@ -181,7 +181,7 @@
         ];
 
         for(let neededTable of neededTables) {
-            await utils.mapSameUuidsRecords(srcConn, neededTable.table, neededTable.column, neededTable.map, neededTable.excluded);
+            await utils.mapSameUuidsRecords(srcConn, neededTable.table, neededTable.column, neededTable.excluded, neededTable.map);
         }
     }
 

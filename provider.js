@@ -1,7 +1,7 @@
 const config = require('./config');
 const utils = require('./utils');
 const strValue = utils.stringValue;
-const moveAllTableRecords = utils.moveAllTableRecords;
+const moveAllTableRecords = utils.copyAllTableRecords;
 const consolidateTableRecords = utils.consolidateRecords;
 
 const beehive = global.beehive;

@@ -1,4 +1,4 @@
-const { addDecimalNumbers, subtractDecimalNumbers, shortenInsert, moveAllTableRecords } = require('./utils');
+const { addDecimalNumbers, subtractDecimalNumbers, shortenInsert, copyAllTableRecords: moveAllTableRecords } = require('./utils');
 const config = require('./config');
 let utils = require('./utils');
 let strValue = utils.stringValue;

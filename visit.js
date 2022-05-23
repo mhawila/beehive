@@ -1,6 +1,6 @@
 let utils = require('./utils');
 let strValue = utils.stringValue;
-let moveAllTableRecords = utils.moveAllTableRecords;
+let moveAllTableRecords = utils.copyAllTableRecords;
 
 let beehive = global.beehive;
 

@@ -3,13 +3,13 @@ const utils = require('./utils');
 const strValue = utils.stringValue;
 const uuid = utils.uuid;
 const logTime = utils.logTime;
-const moveAllTableRecords = utils.moveAllTableRecords;
+const copyAllTableRecords = utils.copyAllTableRecords;
 const config = require('./config');
 
 const BATCH_SIZE = config.batchSize || 200;
 let beehive = global.beehive;
 
-const movedLaterPersonsMap = new Map();
+const copiedLaterPersonsMap = new Map();
 
 function preparePersonInsert(rows, nextPersonId) {
     let insert = 'INSERT INTO person(person_id, gender, birthdate,' +
@@ -66,7 +66,7 @@ function preparePersonAuditInfoUpdateQuery(rows) {
 }
 
 function preparePersonNameInsert(rows, nextPersonNameId) {
-    let insert = 'INSERT IGNORE INTO person_name(person_name_id, preferred, person_id, ' +
+    let insert = 'INSERT INTO person_name(person_name_id, preferred, person_id, ' +
         'prefix, given_name, middle_name, family_name_prefix, family_name,' +
         'family_name2, family_name_suffix, degree, creator, date_created,' +
         'voided, voided_by, date_voided, void_reason, changed_by, ' +
@@ -102,7 +102,7 @@ function preparePersonNameInsert(rows, nextPersonNameId) {
 }
 
 function preparePersonAddressInsert(rows, nextId) {
-    let insert = 'INSERT IGNORE INTO person_address (person_address_id, person_id, ' +
+    let insert = 'INSERT INTO person_address (person_address_id, person_id, ' +
         'preferred, address1, address2, city_village, state_province, ' +
         'postal_code, country, latitude, longitude, creator, date_created, ' +
         'voided, voided_by, date_voided, void_reason, county_district, ' +
@@ -198,7 +198,7 @@ function prepareRelationshipTypeInsert(rows, nextId) {
 }
 
 function prepareRelationshipInsert(rows, nextId) {
-    let insert = 'INSERT IGNORE INTO relationship(relationship_id, person_a, relationship, ' +
+    let insert = 'INSERT INTO relationship(relationship_id, person_a, relationship, ' +
         'person_b, creator, date_created, voided, voided_by, date_voided, ' +
         'void_reason, uuid, date_changed, changed_by, start_date, end_date)' +
         ' VALUES ';
@@ -241,12 +241,12 @@ function prepareUserInsert(rows, nextUserId) {
         }
         beehive.userMap.set(row['user_id'], nextUserId);
 
-        //Some users may be associated with persons that are not moved yet.
+        //Some users may be associated with persons that are not copied yet.
         let personId = beehive.personMap.get(row['person_id']);
         if(personId === undefined) {
-            //This person is not yet moved.
+            //This person is not yet copied.
             personId = 1;       // Place holder (to be updated later)
-            movedLaterPersonsMap.set(nextUserId, row['person_id']);
+            copiedLaterPersonsMap.set(nextUserId, row['person_id']);
         }
         toBeinserted += `(${nextUserId}, '${row['system_id']}', ${strValue(row['username'])},` +
             `'${row['password']}', '${row['salt']}', ${strValue(row['secret_question'])}, ` +
@@ -389,7 +389,7 @@ async function consolidateRolesAndPrivileges(srcConn, destConn) {
             });
         });
         if (privToAdd.length > 0) {
-            utils.logDebug(`Privileges to be moved: ${privToAdd.length}`);
+            utils.logDebug(`Privileges to be copied: ${privToAdd.length}`);
             let insertStmt = preparePrivilegeInsert(privToAdd);
             utils.logDebug('Privilege insert statement:', insertStmt);
 
@@ -405,10 +405,10 @@ async function consolidateRolesAndPrivileges(srcConn, destConn) {
         return 0;
     };
 
-    let movedPrivileges = await __addPrivilegesNotAlreadyInDestination();
-    let movedRoles = await __addRolesNotAlreadyInDestination();
+    let copiedPrivileges = await __addPrivilegesNotAlreadyInDestination();
+    let copiedRoles = await __addRolesNotAlreadyInDestination();
 
-    utils.logDebug(`${movedPrivileges} privileges & ${movedRoles} roles moved`);
+    utils.logDebug(`${copiedPrivileges} privileges & ${copiedRoles} roles copied`);
     //Insert role_privileges (insert ignore)
     let [rps] = await srcConn.query('SELECT * FROM role_privilege');
     if (rps.length > 0) {
@@ -483,21 +483,31 @@ async function consolidateRelationshipTypes(srcConn, destConn) {
     }
 }
 
-async function moveRelationships(srcConn, destConn) {
-    let excluded = '(' + global.excludedPersonIds.join(',') + ')';
-    let condition = `person_a NOT IN ${excluded}`;
-    return await moveAllTableRecords(srcConn, destConn, 'relationship',
+async function copyRelationships(srcConn, destConn) {
+    let excludedRelationshipsIds = [];
+    let condition = null;
+    await utils.mapSameUuidsRecords(srcConn, 'relationship', 'relationship_id', excludedRelationshipsIds);
+    if(excludedRelationshipsIds.length > 0) {
+        let toExclude = '(' + excludedRelationshipsIds.join(',') + ')';
+        condition = `relationship_id NOT IN ${toExclude}`;
+    }
+    return await copyAllTableRecords(srcConn, destConn, 'relationship',
         'relationship_id', prepareRelationshipInsert, condition);
 }
 
-async function movePersonAddresses(srcConn, destConn) {
-    let excluded = '(' + global.excludedPersonIds.join(',') + ')';
-    let condition = `person_id NOT IN ${excluded}`;
-    return await moveAllTableRecords(srcConn, destConn, 'person_address',
+async function copyPersonAddresses(srcConn, destConn) {
+    let excludedIds = [];
+    let condition = null;
+    await utils.mapSameUuidsRecords(srcConn, 'person_address', 'person_address_id', excludedIds);
+    if(excludedIds.length > 0) {
+        let toExclude = '(' + excludedIds.join(',') + ')';
+        condition = `person_address_id NOT IN ${toExclude}`;
+    }
+    return await copyAllTableRecords(srcConn, destConn, 'person_address',
         'person_address_id', preparePersonAddressInsert, condition);
 }
 
-async function updateMovedUsersRoles(srcConn, destConn) {
+async function updateCopiedUsersRoles(srcConn, destConn) {
     let excluded = '(' + global.excludedUsersIds.join(',') + ')';
     let query = `SELECT * FROM user_role WHERE user_id NOT IN ${excluded}`;
     let [rows] = await srcConn.query(query);
@@ -509,7 +519,7 @@ async function updateMovedUsersRoles(srcConn, destConn) {
             let [result] = await destConn.query(insert);
         }
         catch(ex) {
-            utils.logError(`An error occured when updating moved user roles`);
+            utils.logError(`An error occured when updating copied user roles`);
             if(insert) {
                 utils.logError('Statement During error:');
                 utils.logError(insert);
@@ -630,42 +640,19 @@ async function createUserTree(connection, rootUserId, tree) {
     }
 }
 
-async function movePersonNamesforMovedPersons(srcConn, destConn) {
-    let toExclude = '(' + global.excludedPersonIds.join(',') + ')';
-
-    let fetchQuery = `SELECT * FROM ${config.source.openmrsDb}.person_name WHERE ` +
-            `person_id NOT IN ${toExclude} AND uuid NOT IN (SELECT uuid from ${config.destination.openmrsDb}.person_name) order by person_name_id LIMIT `;
-
-    let startingRecord = 0;
-    let dynamicQuery = fetchQuery + `${startingRecord}, ${BATCH_SIZE}`;
-    let [r, f] = await srcConn.query(dynamicQuery);
-    let nextPersonNameId = -1;
-    if (r.length > 0) {
-        nextPersonNameId = await utils.getNextAutoIncrementId(destConn, 'person_name');
+async function copyPersonNames(srcConn, destConn) {
+    let excludedPersonNamesIds = [];
+    let condition = null;
+    await utils.mapSameUuidsRecords(srcConn, 'person_name', 'person_name_id', excludedPersonNamesIds);
+    if(excludedPersonNamesIds.length > 0) {
+        let toExclude = '(' + excludedPersonNamesIds.join(',') + ')';
+        condition = `person_name_id NOT IN ${toExclude}`;
     }
-
-    let moved = 0;
-    let queryLogged = false;
-    while (Array.isArray(r) && r.length > 0) {
-        let [insertStmt, nextId] = preparePersonNameInsert(r, nextPersonNameId);
-        let [result, meta] = await destConn.query(insertStmt);
-        moved = utils.addDecimalNumbers(moved, result.affectedRows);
-        nextPersonNameId = nextId;
-
-        startingRecord = utils.addDecimalNumbers(startingRecord, BATCH_SIZE);
-        dynamicQuery = fetchQuery + `${startingRecord}, ${BATCH_SIZE}`;
-        [r, f] = await srcConn.query(dynamicQuery);
-
-        if(!queryLogged) {
-            utils.logDebug(`person_name insert statement:`)
-            utils.logDebug(utils.shortenInsert(insertStmt));
-            queryLogged = true;
-        }
-    }
-    return moved;
+    return await copyAllTableRecords(srcConn, destConn, 'person_name',
+        'person_name_id', preparePersonNameInsert, condition);
 }
 
-async function movePersons(srcConn, destConn, srcUserId) {
+async function copyPersons(srcConn, destConn, srcUserId) {
     let [q, nextId] = [undefined, -1];
     try {
         // Get next person id in the destination
@@ -673,23 +660,23 @@ async function movePersons(srcConn, destConn, srcUserId) {
         let toExclude = '(' + global.excludedPersonIds.join(',') + ')';
 
         let countCondition = `creator = ${srcUserId} AND person_id NOT IN ${toExclude}`;
-        let personsToMoveCount = await getPersonsCountIgnoreDuplicateUuids(srcConn, countCondition);
+        let personsToCopyCount = await getPersonsCountIgnoreDuplicateUuids(srcConn, countCondition);
 
         // Get all person created by srcUserId in SRC database
         let startingRecord = 0;
         let personFetchQuery = `SELECT * FROM ${config.source.openmrsDb}.person WHERE creator = ${srcUserId}` +
             ` and person_id NOT IN ${toExclude} AND uuid NOT IN (SELECT uuid FROM ${config.destination.openmrsDb}.person) order by date_created limit `;
-        let temp = personsToMoveCount;
-        let moved = 0;
+        let temp = personsToCopyCount;
+        let copied = 0;
         let queryLogged = false;
         while (temp % BATCH_SIZE > 0) {
             let query = personFetchQuery;
             if (Math.floor(temp / BATCH_SIZE) > 0) {
-                moved = utils.addDecimalNumbers(moved, BATCH_SIZE);
+                copied = utils.addDecimalNumbers(copied, BATCH_SIZE);
                 query += startingRecord + ', ' + BATCH_SIZE;
                 temp = utils.subtractDecimalNumbers(temp, BATCH_SIZE);
             } else {
-                moved = utils.addDecimalNumbers(moved, temp);
+                copied = utils.addDecimalNumbers(copied, temp);
                 query += startingRecord + ', ' + temp;
                 temp = 0;
             }
@@ -711,7 +698,7 @@ async function movePersons(srcConn, destConn, srcUserId) {
             await destConn.query(q);
             nextPersonId = nextId;
         }
-        return moved;
+        return copied;
     } catch (ex) {
         utils.logError('An error occured while moving persons...');
         if(q) {
@@ -722,29 +709,29 @@ async function movePersons(srcConn, destConn, srcUserId) {
     }
 }
 
-async function moveUsers(srcConn, destConn, creatorId) {
+async function copyUsers(srcConn, destConn, creatorId) {
     let [insertStmt, nextId] = [undefined, -1];
     try {
         let toExclude = '(' + global.excludedUsersIds.join(',') + ')';
         let condition = `creator=${creatorId} AND user_id NOT IN ${toExclude}`;
         let nextUserId = await utils.getNextAutoIncrementId(destConn, 'users');
-        let usersToMoveCount = await getUsersCountIgnoreDuplicateUuids(srcConn, condition);
+        let usersToCopyCount = await getUsersCountIgnoreDuplicateUuids(srcConn, condition);
 
         let startingRecord = 0;
         condition += ` AND uuid NOT IN (SELECT uuid FROM ${config.destination.openmrsDb}.users)`;
         let userFetchQuery = `SELECT * FROM ${config.source.openmrsDb}.users WHERE ${condition} order by date_changed, date_created LIMIT `;
 
-        let temp = usersToMoveCount;
-        let moved = 0
+        let temp = usersToCopyCount;
+        let copied = 0
         let logged = false;
         while (temp % BATCH_SIZE > 0) {
             let query = userFetchQuery;
             if (Math.floor(temp / BATCH_SIZE) > 0) {
-                moved = utils.addDecimalNumbers(moved, BATCH_SIZE);
+                copied = utils.addDecimalNumbers(copied, BATCH_SIZE);
                 query += startingRecord + ', ' + BATCH_SIZE;
                 temp = utils.subtractDecimalNumbers(temp, BATCH_SIZE);
             } else {
-                moved = utils.addDecimalNumbers(moved, temp);
+                copied = utils.addDecimalNumbers(copied, temp);
                 query += startingRecord + ', ' + temp;
                 temp = 0;
             }
@@ -766,7 +753,7 @@ async function moveUsers(srcConn, destConn, creatorId) {
             }
             nextUserId = nextId;
         }
-        return moved;
+        return copied;
     } catch (ex) {
         utils.logError('Error while moving users...');
         if(insertStmt) {
@@ -782,20 +769,20 @@ async function traverseUserTree(tree, srcConn, destConn) {
         throw new Error('Error! Incompatible tree passed', tree);
     }
     try {
-        let movedPersons = await movePersons(srcConn, destConn, tree.userId);
-        let movedUsers = await moveUsers(srcConn, destConn, tree.userId);
+        let copiedPersons = await copyPersons(srcConn, destConn, tree.userId);
+        let copiedUsers = await copyUsers(srcConn, destConn, tree.userId);
         // For each child do the same.
         if (tree.children && tree.children.length > 0) {
             for (let i = 0; i < tree.children.length; i++) {
-                let childMoved = await traverseUserTree(tree.children[i], srcConn, destConn);
-                movedPersons = utils.addDecimalNumbers(movedPersons, childMoved.movedPersonsCount);
-                movedUsers = utils.addDecimalNumbers(movedUsers, childMoved.movedUsersCount);
+                let childCopied = await traverseUserTree(tree.children[i], srcConn, destConn);
+                copiedPersons = utils.addDecimalNumbers(copiedPersons, childCopied.copiedPersonsCount);
+                copiedUsers = utils.addDecimalNumbers(copiedUsers, childCopied.copiedUsersCount);
             }
         }
 
         return {
-            movedPersonsCount: movedPersons,
-            movedUsersCount: movedUsers
+            copiedPersonsCount: copiedPersons,
+            copiedUsersCount: copiedUsers
         };
     } catch (ex) {
         utils.logError('Error: while traversing tree ', JSON.stringify(tree,null,2));
@@ -964,7 +951,7 @@ async function main(srcConn, destConn) {
     const srcPersonCount = await getPersonsCountIgnoreDuplicateUuids(srcConn, countCondition);
     const initialDestPersonCount = await getPersonsCount(destConn);
     
-    utils.logInfo(`${logTime()}: Starting to move persons & users...`);
+    utils.logInfo(`${logTime()}: Starting to copy persons & users...`);
     utils.logInfo(`Number of persons in source db: ${srcPersonCount}`);
     utils.logInfo(`Number of users in source db: ${srcUsersCount}`);
     utils.logInfo(`Initial numnber of persons in destination: ${initialDestPersonCount}`);
@@ -985,20 +972,20 @@ async function main(srcConn, destConn) {
 
     // Update users person ids for those users whose persons were not created by their
     // creators.
-    await updateUsersPersonIds(destConn, movedLaterPersonsMap);
+    await updateUsersPersonIds(destConn, copiedLaterPersonsMap);
 
     const finalDestUserCount = await getUsersCount(destConn);
     const finalDestPersonCount = await getPersonsCount(destConn);
 
     //Do some crude math verifications.
-    let expectedFinalDestUserCount = initialDestUsersCount + count.movedUsersCount;
-    let expectedFinalDestPersonCount = initialDestPersonCount + count.movedPersonsCount;
+    let expectedFinalDestUserCount = initialDestUsersCount + count.copiedUsersCount;
+    let expectedFinalDestPersonCount = initialDestPersonCount + count.copiedPersonsCount;
 
     if (expectedFinalDestPersonCount === finalDestPersonCount &&
         expectedFinalDestUserCount === finalDestUserCount) {
-        utils.logOk(`Ok...${logTime()}: Hooraa! Persons & Users Moved successfully!`);
-        utils.logOk(`${count.movedPersonsCount} persons moved. Destination's new total is ${finalDestPersonCount}`);
-        utils.logOk(`${count.movedUsersCount} users moved. Destination's new total is ${finalDestUserCount}`);
+        utils.logOk(`Ok...${logTime()}: Hooraa! Persons & Users copied successfully!`);
+        utils.logOk(`${count.copiedPersonsCount} persons copied. Destination's new total is ${finalDestPersonCount}`);
+        utils.logOk(`${count.copiedUsersCount} users copied. Destination's new total is ${finalDestUserCount}`);
 
         utils.logInfo('Updating Auditing Information for person table...');
         count = await updateAuditInfoForPersons(srcConn, destConn);
@@ -1009,21 +996,21 @@ async function main(srcConn, destConn) {
         utils.logInfo(`Ok...${count} records updated`);
 
         utils.logInfo('Copying person names...');
-        count = await movePersonNamesforMovedPersons(srcConn, destConn);
-        utils.logOk(`Ok...${count} names moved`);
+        count = await copyPersonNames(srcConn, destConn);
+        utils.logOk(`Ok...${count} names copied`);
 
         utils.logInfo(`Consolidating & updating roles & privileges...`);
         await consolidateRolesAndPrivileges(srcConn, destConn);
-        await updateMovedUsersRoles(srcConn, destConn);
+        await updateCopiedUsersRoles(srcConn, destConn);
         utils.logOk('Ok...');
 
-        utils.logInfo('Update moved persons relationships...');
+        utils.logInfo('Update copied persons relationships...');
         await consolidateRelationshipTypes(srcConn, destConn);
-        await moveRelationships(srcConn, destConn);
+        await copyRelationships(srcConn, destConn);
         utils.logOk('Ok...');
 
         utils.logInfo('Copying person addresses...');
-        await movePersonAddresses(srcConn, destConn);
+        await copyPersonAddresses(srcConn, destConn);
         utils.logOk('Ok...')
     } else {
         utils.logError('Expected & actual persons and/or users final numbers do not match!!');
