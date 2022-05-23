@@ -94,12 +94,7 @@ async function consolidateLocations(srcConn, destConn) {
     try {
         let missingInDest = [];
         srcLocs.forEach(srcLoc => {
-            let match = destLocs.find(destLoc => {
-                return ((srcLoc['name'] === destLoc['name'] &&
-                             srcLoc['county_district'] === destLoc['county_district'] &&
-                             srcLoc['state_province'] === destLoc['state_province']) ||
-                                srcLoc['uuid'] === destLoc['uuid']);
-            });
+            let match = destLocs.find(destLoc => srcLoc['uuid'] === destLoc['uuid']);
 
             if (match !== undefined && match !== null) {
                 beehive.locationMap.set(srcLoc['location_id'], match['location_id']);
